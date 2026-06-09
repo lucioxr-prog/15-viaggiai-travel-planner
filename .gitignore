@@ -32,3 +32,11 @@ npm-debug.log*
 dist/
 build/
 *.min.js.map
+
+# Clasp e backup
+.clasp.json
+.claspignore
+appsscript.json
+backup_*/
+Code_v5.gs
+SETUP_CLASP_E_PUSH.sh
