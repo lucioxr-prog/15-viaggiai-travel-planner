@@ -298,10 +298,12 @@
       position: absolute;
       width: 4px; height: 4px;
       background: #00e5ff;
-      border-radius: 50%;
+      border-radius: 50% !important;
+      -webkit-border-radius: 50% !important;
       opacity: 0;
       pointer-events: none;
       animation: floatUp linear forwards;
+      overflow: hidden;
     }
     @keyframes floatUp {
       0%   { transform: translateY(0) scale(1); opacity: 0; }
@@ -336,7 +338,7 @@
       <div class="user-panel">
         <span id="tierBadge" class="tier-badge" style="display:none;"></span>
         <span id="userDisplay" style="display:none;"></span>
-        <button id="loginBtn" onclick="login()">🔐 Accedi con Google</button>
+        <button id="loginBtn" onclick="login()" style="display:none;">🔐 Accedi con Google</button>
         <button id="logoutBtn" style="display:none;" onclick="logout()">Esci</button>
       </div>
 
@@ -576,6 +578,9 @@
         particle.style.top = '100%';
         particle.style.animationDuration = duration + 's';
         particle.style.background = Math.random() > 0.5 ? '#00e5ff' : '#b388ff';
+        particle.style.borderRadius = '50%';
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
         container.appendChild(particle);
         setTimeout(() => particle.remove(), duration * 1000 + 100);
       }
