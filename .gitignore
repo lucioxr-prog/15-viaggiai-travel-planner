@@ -1,0 +1,34 @@
+# ── Chiavi e segreti — MAI su GitHub ──
+*.env
+.env
+.env.*
+secrets.json
+keys.json
+mie_chiavi*.txt
+chiavi*.txt
+*_keys.txt
+*_secrets.txt
+
+# ── macOS ──
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Node (per eventuali tool futuri) ──
+node_modules/
+npm-debug.log*
+
+# ── Build artifacts ──
+dist/
+build/
+*.min.js.map
