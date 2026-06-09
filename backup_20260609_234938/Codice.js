@@ -111,12 +111,8 @@ function doPost(e) {
       case 'search':          return handleSearch_(payload, t0);
       case 'saveTrip':        return handleSaveTrip_(payload);
       case 'getHistory':      return handleGetHistory_(payload);
-      case 'adminListUsers':     return handleAdminListUsers_(payload);
-      case 'adminSetTier':       return handleAdminSetTier_(payload);
-      case 'adminCreateUser':    return handleAdminCreateUser_(payload);
-      case 'adminBlockUser':     return handleAdminBlock_(payload, true);
-      case 'adminUnblockUser':   return handleAdminBlock_(payload, false);
-      case 'adminUpdateUser':    return handleAdminUpdateUser_(payload);
+      case 'adminListUsers':  return handleAdminListUsers_(payload);
+      case 'adminSetTier':    return handleAdminSetTier_(payload);
       default:                return jsonOut_({ success: false, error: 'Azione sconosciuta: ' + action });
     }
   } catch (err) {
@@ -165,21 +161,11 @@ function handleLogin_(payload) {
   if (!u) return jsonOut_({ success: false, error: 'Token non valido o scaduto' });
   upsertUser_(u);
   const ent = getEntitlement_(u.email);
-  if (ent.status === 'blocked') {
-    return jsonOut_({ success: false, error: "Account bloccato. Contatta l'amministratore." });
-  }
-  if (ent.expiryDate) {
-    const exp = new Date(ent.expiryDate);
-    if (!isNaN(exp.getTime()) && exp < new Date()) {
-      return jsonOut_({ success: false, error: 'Account scaduto il ' + exp.toLocaleDateString("it-IT") + ". Contatta l'amministratore." });
-    }
-  }
-  const max = ent.tripsMax || parseInt(cfg_('TRIAL_MAX_TRIPS') || '2', 10);
+  const max = parseInt(cfg_('TRIAL_MAX_TRIPS') || '2', 10);
   return jsonOut_({
     success: true,
     user: { email: u.email, name: u.name, picture: u.picture },
-    tier: ent.tier, tripsUsed: ent.tripsUsed, tripsMax: max, status: ent.status,
-    expiryDate: ent.expiryDate || null
+    tier: ent.tier, tripsUsed: ent.tripsUsed, tripsMax: max, status: ent.status
   });
 }
 
@@ -799,7 +785,7 @@ function getEntitlement_(email) {
   lock.tryLock(10000);
   try {
     const sh = getOrCreateSheet_(SHEET_ENTITLEMENTS,
-      ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note', 'expiryDate', 'createdBy', 'tripsMax', 'blocked']);
+      ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note']);
     const data = sh.getDataRange().getValues();
     const admin = isAdminEmail_(email);
 
@@ -807,18 +793,12 @@ function getEntitlement_(email) {
       if (String(data[i][0]).toLowerCase() === String(email).toLowerCase()) {
         let tier = data[i][1] || 'trial';
         if (admin && tier !== 'admin') { sh.getRange(i + 1, 2).setValue('admin'); tier = 'admin'; }
-        const blocked = data[i][10] === true || data[i][10] === 'TRUE';
-        return { row: i + 1, email: email, tier: tier,
-          tripsUsed: Number(data[i][2] || 0),
-          status: blocked ? 'blocked' : (data[i][3] || 'active'),
-          expiryDate: data[i][7] || null, createdBy: data[i][8] || null,
-          tripsMax: data[i][9] ? Number(data[i][9]) : null, blocked: blocked };
+        return { row: i + 1, email: email, tier: tier, tripsUsed: Number(data[i][2] || 0), status: data[i][3] || 'active' };
       }
     }
     const tier = admin ? 'admin' : 'trial';
-    sh.appendRow([email, tier, 0, 'active', new Date(), new Date(), '', '', '', '', false]);
-    return { row: sh.getLastRow(), email: email, tier: tier, tripsUsed: 0, status: 'active',
-             expiryDate: null, createdBy: null, tripsMax: null, blocked: false };
+    sh.appendRow([email, tier, 0, 'active', new Date(), new Date(), '']);
+    return { row: sh.getLastRow(), email: email, tier: tier, tripsUsed: 0, status: 'active' };
   } finally {
     lock.releaseLock();
   }
@@ -864,90 +844,13 @@ function requireAdmin_(payload) {
 function handleAdminListUsers_(payload) {
   if (!requireAdmin_(payload)) return jsonOut_({ success: false, error: 'Accesso negato (solo Admin).' });
   const sh = getOrCreateSheet_(SHEET_ENTITLEMENTS,
-    ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note', 'expiryDate', 'createdBy', 'tripsMax', 'blocked']);
+    ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note']);
   const data = sh.getDataRange().getValues();
   const users = [];
   for (let i = 1; i < data.length; i++) {
-    if (!data[i][0]) continue;
-    const blocked = data[i][10] === true || data[i][10] === 'TRUE';
-    users.push({ email: data[i][0], tier: data[i][1] || 'trial',
-      tripsUsed: Number(data[i][2] || 0),
-      status: blocked ? 'blocked' : (data[i][3] || 'active'),
-      createdAt: data[i][4] ? new Date(data[i][4]).toLocaleDateString('it-IT') : '',
-      updatedAt: data[i][5] ? new Date(data[i][5]).toLocaleDateString('it-IT') : '',
-      note: data[i][6] || '', expiryDate: data[i][7] || null,
-      createdBy: data[i][8] || '', tripsMax: data[i][9] ? Number(data[i][9]) : null, blocked: blocked });
+    users.push({ email: data[i][0], tier: data[i][1], tripsUsed: Number(data[i][2] || 0), status: data[i][3] });
   }
   return jsonOut_({ success: true, users: users });
-}
-
-function handleAdminCreateUser_(payload) {
-  const caller = requireAdmin_(payload);
-  if (!caller) return jsonOut_({ success: false, error: 'Accesso negato (solo Admin).' });
-  const targetEmail = String(payload.targetEmail || '').toLowerCase().trim();
-  if (!targetEmail || !targetEmail.includes('@')) return jsonOut_({ success: false, error: 'Email non valida.' });
-  const newTier = ['trial','pro','admin'].includes(payload.newTier) ? payload.newTier : 'trial';
-  const note = payload.note || '';
-  const tripsMax = payload.tripsMax ? Number(payload.tripsMax) : '';
-  let expiryDate = '';
-  if (payload.expiryDays && Number(payload.expiryDays) > 0) {
-    expiryDate = new Date(Date.now() + Number(payload.expiryDays) * 86400000).toISOString();
-  } else if (payload.expiryDate) { expiryDate = payload.expiryDate; }
-  const lock = LockService.getScriptLock(); lock.tryLock(10000);
-  try {
-    const sh = getOrCreateSheet_(SHEET_ENTITLEMENTS,
-      ['email','tier','tripsUsed','status','createdAt','updatedAt','note','expiryDate','createdBy','tripsMax','blocked']);
-    const data = sh.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]).toLowerCase() === targetEmail)
-        return jsonOut_({ success: false, error: 'Utente già esistente.' });
-    }
-    sh.appendRow([targetEmail, newTier, 0, 'active', new Date(), new Date(), note, expiryDate, caller.email, tripsMax, false]);
-    return jsonOut_({ success: true, email: targetEmail, tier: newTier });
-  } finally { lock.releaseLock(); }
-}
-
-function handleAdminBlock_(payload, block) {
-  if (!requireAdmin_(payload)) return jsonOut_({ success: false, error: 'Accesso negato (solo Admin).' });
-  const targetEmail = String(payload.targetEmail || '').toLowerCase().trim();
-  if (!targetEmail) return jsonOut_({ success: false, error: 'targetEmail mancante.' });
-  const lock = LockService.getScriptLock(); lock.tryLock(10000);
-  try {
-    const sh = getOrCreateSheet_(SHEET_ENTITLEMENTS,
-      ['email','tier','tripsUsed','status','createdAt','updatedAt','note','expiryDate','createdBy','tripsMax','blocked']);
-    const data = sh.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]).toLowerCase() === targetEmail) {
-        sh.getRange(i+1,11).setValue(block);
-        sh.getRange(i+1,4).setValue(block ? 'blocked' : 'active');
-        sh.getRange(i+1,6).setValue(new Date());
-        return jsonOut_({ success: true, email: targetEmail, blocked: block });
-      }
-    }
-    return jsonOut_({ success: false, error: 'Utente non trovato.' });
-  } finally { lock.releaseLock(); }
-}
-
-function handleAdminUpdateUser_(payload) {
-  if (!requireAdmin_(payload)) return jsonOut_({ success: false, error: 'Accesso negato (solo Admin).' });
-  const targetEmail = String(payload.targetEmail || '').toLowerCase().trim();
-  if (!targetEmail) return jsonOut_({ success: false, error: 'targetEmail mancante.' });
-  const lock = LockService.getScriptLock(); lock.tryLock(10000);
-  try {
-    const sh = getOrCreateSheet_(SHEET_ENTITLEMENTS,
-      ['email','tier','tripsUsed','status','createdAt','updatedAt','note','expiryDate','createdBy','tripsMax','blocked']);
-    const data = sh.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]).toLowerCase() === targetEmail) {
-        if (payload.note !== undefined) sh.getRange(i+1,7).setValue(payload.note);
-        if (payload.expiryDate !== undefined) sh.getRange(i+1,8).setValue(payload.expiryDate);
-        if (payload.tripsMax !== undefined) sh.getRange(i+1,10).setValue(payload.tripsMax);
-        sh.getRange(i+1,6).setValue(new Date());
-        return jsonOut_({ success: true });
-      }
-    }
-    return jsonOut_({ success: false, error: 'Utente non trovato.' });
-  } finally { lock.releaseLock(); }
 }
 
 /** Admin imposta il tier di un utente (upgrade a Pro, ecc.). Sblocca e azzera il contatore se non-trial. */
@@ -962,7 +865,7 @@ function handleAdminSetTier_(payload) {
   lock.tryLock(10000);
   try {
     const sh = getOrCreateSheet_(SHEET_ENTITLEMENTS,
-      ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note', 'expiryDate', 'createdBy', 'tripsMax', 'blocked']);
+      ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note']);
     const data = sh.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).toLowerCase() === targetEmail.toLowerCase()) {
@@ -973,7 +876,7 @@ function handleAdminSetTier_(payload) {
         return jsonOut_({ success: true });
       }
     }
-    sh.appendRow([targetEmail, newTier, 0, 'active', new Date(), new Date(), 'creato da admin', '', '', '', false]);
+    sh.appendRow([targetEmail, newTier, 0, 'active', new Date(), new Date(), 'creato da admin']);
     return jsonOut_({ success: true });
   } finally {
     lock.releaseLock();
@@ -1050,7 +953,7 @@ function setup() {
   getOrCreateSheet_(SHEET_CONFIG, ['chiave', 'valore']);
   getOrCreateSheet_(SHEET_USERS, ['email', 'name', 'sub', 'firstSeen', 'lastSeen']);
   getOrCreateSheet_(SHEET_TRIPS, ['email', 'origine', 'destinazioni', 'dataFrom', 'dataTo', 'budget', 'costoTotale', 'salvatoIl']);
-  getOrCreateSheet_(SHEET_ENTITLEMENTS, ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note', 'expiryDate', 'createdBy', 'tripsMax', 'blocked']);
+  getOrCreateSheet_(SHEET_ENTITLEMENTS, ['email', 'tier', 'tripsUsed', 'status', 'createdAt', 'updatedAt', 'note']);
   SpreadsheetApp.getActiveSpreadsheet().toast('Fogli creati. Ora inserisci le chiavi (Config o Script Properties) incluso ADMIN_EMAILS.');
 }
 
@@ -1060,13 +963,13 @@ function setup() {
  */
 function saveKeysExample() {
   PropertiesService.getScriptProperties().setProperties({
-    GOOGLE_CLIENT_ID:      'IL_TUO_CLIENT_ID.apps.googleusercontent.com',
-    KIWI_API_KEY:          'la_tua_kiwi_key',
-    AMADEUS_CLIENT_ID:     'il_tuo_amadeus_id',
-    AMADEUS_CLIENT_SECRET: 'il_tuo_amadeus_secret',
-    AMADEUS_ENV:           'test',
-    ORS_API_KEY:           'la_tua_ors_key',
-    ADMIN_EMAILS:          'tua-email@gmail.com',
+    GOOGLE_CLIENT_ID:      '**************************',
+    KIWI_API_KEY:          '',
+    AMADEUS_CLIENT_ID:     '',
+    AMADEUS_CLIENT_SECRET: '',
+    AMADEUS_ENV:           '',
+    ORS_API_KEY:           '***************************',
+    ADMIN_EMAILS:          '***************************',
     TRIAL_MAX_TRIPS:       '2',
     REQUIRE_LOGIN_FOR_SEARCH: 'true',
     DAILY_SEARCH_CAP:      '800',

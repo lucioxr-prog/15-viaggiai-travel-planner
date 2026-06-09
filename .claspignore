@@ -1,0 +1,7 @@
+**/*.html
+**/*.sh
+**/*.md
+**/backup_*/**
+**/.git/**
+**/node_modules/**
+**/Code_v5.gs
