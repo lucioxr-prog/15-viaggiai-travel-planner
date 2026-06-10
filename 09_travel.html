@@ -1041,7 +1041,7 @@
       if (!emailVal || !emailVal.includes('@')) { msg.style.color='#ff5555'; msg.textContent='Email non valida.'; return; }
       msg.style.color='#aaa'; msg.textContent='Creazione in corso...';
       try {
-        const data = await apiPost({ action: 'adminCreateUser', idToken: idToken, email: emailVal, tier: tierVal, expiryDate: expiryVal, tripsMax: tripsMaxVal });
+        const data = await apiPost({ action: 'adminCreateUser', idToken: idToken, targetEmail: emailVal, newTier: tierVal, expiryDate: expiryVal, tripsMax: tripsMaxVal });
         if (data.success) {
           msg.style.color='#50fa7b'; msg.textContent='✅ Utente creato: ' + emailVal;
           document.getElementById('newUserEmail').value = '';
