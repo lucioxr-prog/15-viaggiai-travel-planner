@@ -825,7 +825,7 @@
         if (trip.suggerimento) {
           html += `
             <div class="card">
-              <h3>${esc(trip.destinazione)}</h3>
+              <h3 style="color:#FF6600;">${esc(trip.destinazione)}</h3>
               <p class="nota">${esc(trip.voliNota || '')}</p>
               <a class="book-btn" href="${esc(trip.voliLink)}" target="_blank" rel="noopener">✈️ Cerca voli</a>
               <a class="book-btn" href="${esc(trip.hotelLink)}" target="_blank" rel="noopener">🏨 Cerca hotel</a>
@@ -834,7 +834,7 @@
         }
 
         html += `<div class="card">
-          <h3>${esc(trip.destinazione)} <span class="tag">${esc(trip.giorni)} giorni</span></h3>`;
+          <h3 style="color:#FF6600;">${esc(trip.destinazione)} <span class="tag">${esc(trip.giorni)} giorni</span></h3>`;
 
         if (trip.meteo) {
           html += `<div class="weather-chip" style="color:#ffffff !important;">🌤️ ${esc(trip.meteo.descrizione)} · ${esc(trip.meteo.tempMin)}°/${esc(trip.meteo.tempMax)}°C</div>`;
