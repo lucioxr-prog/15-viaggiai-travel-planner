@@ -884,7 +884,7 @@
           });
         } else {
           if (trip.hotelsNota) html += `<p class="nota">${esc(trip.hotelsNota)}</p>`;
-          if (trip.hotelsError) html += `<p class="section-error">⚠️ ${esc(trip.hotelsError)}</p>`;
+          // errore Amadeus nascosto all'utente finale
         }
         if (trip.hotelLink) html += `<a class="book-btn" href="${esc(trip.hotelLink)}" target="_blank" rel="noopener">🔎 Cerca tutti gli hotel</a>`;
         html += `</details>`;
@@ -893,9 +893,16 @@
         if (trip.auto) {
           html += `<details><summary>🚗 Auto</summary>`;
           if (trip.auto.distanzaKm != null) {
-            html += `<p class="nota">Percorso in auto: ~${esc(trip.auto.distanzaKm)} km · ~${esc(Math.round(trip.auto.durataMin/60))} h ${esc(trip.auto.durataMin%60)} min (dati OpenRouteService)</p>`;
+            html += `<div style="background:rgba(255,102,0,0.1); border-left:3px solid #FF6600; padding:10px 14px; margin:8px 0; border-radius:4px;">`;
+            html += `<strong style="color:#FF6600;">🚗 Con la tua auto</strong><br>`;
+            html += `<span style="color:#ffffff;">Distanza: ~${esc(trip.auto.distanzaKm)} km &nbsp;·&nbsp; Tempo stimato: ~${esc(Math.round(trip.auto.durataMin/60))}h ${esc(trip.auto.durataMin%60)}min</span><br>`;
+            html += `<small style="color:#aaa;">(Fonte: OpenRouteService — tempi senza traffico)</small>`;
+            html += `</div>`;
+          } else {
+            html += `<p class="nota">Distanza non disponibile per questa tratta.</p>`;
           }
           if (trip.auto.noleggio) {
+            html += `<p style="color:#aaa; margin-top:8px;">Oppure noleggia un'auto:</p>`;
             html += `<a class="book-btn" href="${esc(trip.auto.noleggio.rentalcars)}" target="_blank" rel="noopener">🚙 Noleggia (Rentalcars)</a>`;
             html += `<a class="book-btn" href="${esc(trip.auto.noleggio.kayak)}" target="_blank" rel="noopener">🚙 Confronta (Kayak)</a>`;
           }
