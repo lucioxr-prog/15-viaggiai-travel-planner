@@ -920,8 +920,7 @@
         // ---- SALVA ----
         html += `<button class="btn-primary" style="margin-top:15px; width:auto;"
           onclick="saveTrip('${esc(trip.destinazione)}', ${trip.costoTotaleStimato != null ? Math.round(trip.costoTotaleStimato) : 0})">💾 Salva viaggio</button>
-        ${window._viaggiaiTier === 'pro' || window._viaggiaiTier === 'admin' || tier === 'pro' || tier === 'admin' ? `<button class="btn-secondary" style="margin-top:15px; width:auto; background:#FF6600; border-color:#FF6600;"
-          onclick='generatePDF(window._viaggiaiResults[${idx}])'>📄 Scarica PDF</button>` : '<span class="nota" style="margin-left:10px;">📄 PDF riservato agli utenti Pro</span>'}\`;
+        ` + (window._viaggiaiTier === 'pro' || window._viaggiaiTier === 'admin' || tier === 'pro' || tier === 'admin' ? '<button class="btn-secondary" style="margin-top:15px; width:auto; background:#FF6600; border-color:#FF6600;" onclick="generatePDF(window._viaggiaiResults[' + idx + '])">📄 Scarica PDF</button>' : '<span class="nota" style="margin-left:10px;">📄 PDF riservato agli utenti Pro</span>') + `
 
         html += `</div>`;
       });
