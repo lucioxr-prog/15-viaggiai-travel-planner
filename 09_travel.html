@@ -414,9 +414,38 @@
       <!-- PANNELLO ADMIN (solo admin) -->
       <div class="glass" id="adminContainer" style="display:none;">
         <h2 style="color:#b388ff; margin-bottom:15px;">🔧 Pannello Admin — Gestione utenti</h2>
-        <p class="nota">Cambia il tier di un utente e premi Salva. "Pro" sblocca l'utente e azzera il contatore del Trial.</p>
+        <div style="background:rgba(179,136,255,0.08); border:1px solid rgba(179,136,255,0.25); border-radius:12px; padding:16px; margin-bottom:20px;">
+          <h3 style="color:#b388ff; margin:0 0 12px 0; font-size:1rem;">➕ Crea nuovo utente</h3>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
+            <div style="display:flex; flex-direction:column; gap:4px; flex:2; min-width:180px;">
+              <label style="font-size:0.75rem; color:#aaa;">Email</label>
+              <input type="email" id="newUserEmail" placeholder="utente@esempio.com" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; font-size:0.9rem;">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:100px;">
+              <label style="font-size:0.75rem; color:#aaa;">Tier</label>
+              <select id="newUserTier" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(30,30,50,0.9); color:#fff;">
+                <option value="trial">Trial</option>
+                <option value="pro">Pro</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:130px;">
+              <label style="font-size:0.75rem; color:#aaa;">Scadenza</label>
+              <input type="date" id="newUserExpiry" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(30,30,50,0.9); color:#fff;">
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:80px;">
+              <label style="font-size:0.75rem; color:#aaa;">Max viaggi</label>
+              <input type="number" id="newUserTripsMax" value="2" min="1" max="9999" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; width:80px;">
+            </div>
+            <button class="book-btn" onclick="createUser()" style="white-space:nowrap;">➕ Crea utente</button>
+          </div>
+          <div id="createUserMsg" style="margin-top:8px; font-size:0.85rem;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="color:#b388ff; margin:0; font-size:1rem;">👥 Utenti registrati</h3>
+          <button class="btn-secondary" style="width:auto;" onclick="loadAdminUsers()">↻ Aggiorna</button>
+        </div>
         <div id="adminUsers"></div>
-        <button class="btn-secondary" style="width:auto; margin-top:10px;" onclick="loadAdminUsers()">↻ Aggiorna lista</button>
       </div>
 
       <!-- FOOTER -->
@@ -939,7 +968,7 @@
     }
 
     // ==================== PANNELLO ADMIN ====================
-    let adminUserList = []; // cache locale per evitare interpolazione email negli onclick
+    let adminUserList = [];
 
     async function loadAdminUsers() {
       if (tier !== 'admin') return;
@@ -948,17 +977,30 @@
         const data = await apiPost({ action: 'adminListUsers', idToken: idToken });
         if (!data.success) { box.innerHTML = `<p class="section-error">${esc(data.error)}</p>`; return; }
         adminUserList = data.users || [];
-        const rows = adminUserList.map((u, i) => `
-          <div class="admin-user-row">
-            <strong style="flex:1; min-width:180px;">${esc(u.email)}</strong>
-            <span class="nota">viaggi: ${esc(u.tripsUsed)} · ${esc(u.status)}</span>
-            <select id="tier_${i}">
+        const rows = adminUserList.map((u, i) => {
+          const isBlocked = u.blocked === true || u.blocked === 'TRUE';
+          const expiry = u.expiryDate || '';
+          const tripsMax = u.tripsMax != null ? u.tripsMax : 2;
+          const statusColor = isBlocked ? '#ff5555' : (u.status === 'active' ? '#50fa7b' : '#aaa');
+          return `
+          <div style="display:flex; flex-wrap:wrap; gap:8px; padding:12px; margin-bottom:8px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid rgba(255,255,255,0.08); align-items:center;">
+            <div style="flex:1; min-width:180px;">
+              <strong style="font-size:0.95rem;">${esc(u.email)}</strong><br>
+              <span class="nota">viaggi: ${esc(String(u.tripsUsed))}/${esc(String(tripsMax))} &middot; <span style="color:${statusColor};">${isBlocked ? '🔴 bloccato' : esc(u.status)}</span> &middot; scade: ${esc(expiry || '—')}</span>
+            </div>
+            <select id="tier_${i}" style="padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(30,30,50,0.9); color:#fff; height:36px;">
               <option value="trial" ${u.tier === 'trial' ? 'selected' : ''}>Trial</option>
               <option value="pro"   ${u.tier === 'pro'   ? 'selected' : ''}>Pro</option>
               <option value="admin" ${u.tier === 'admin' ? 'selected' : ''}>Admin</option>
             </select>
-            <button class="book-btn" onclick="setUserTier(${i})">Salva</button>
-          </div>`).join('');
+            <input type="date" id="expiry_${i}" value="${esc(expiry)}" style="padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(30,30,50,0.9); color:#fff; height:36px;">
+            <input type="number" id="tripsmax_${i}" value="${esc(String(tripsMax))}" min="1" max="9999" style="padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; width:75px; height:36px;">
+            <button class="book-btn" onclick="setUserTier(${i})" style="height:36px; padding:0 14px;">💾 Salva</button>
+            <button onclick="toggleBlock(${i})" style="height:36px; padding:0 14px; border-radius:8px; border:1px solid ${isBlocked ? 'rgba(80,250,123,0.4)' : 'rgba(255,85,85,0.4)'}; background:${isBlocked ? 'rgba(80,250,123,0.15)' : 'rgba(255,85,85,0.15)'}; color:${isBlocked ? '#50fa7b' : '#ff5555'}; cursor:pointer; font-size:0.85rem;">
+              ${isBlocked ? '🔓 Sblocca' : '🔒 Blocca'}
+            </button>
+          </div>`;
+        }).join('');
         box.innerHTML = rows || '<p class="empty-hint">Nessun utente registrato.</p>';
       } catch(e) {
         box.innerHTML = '<p class="section-error">Errore di rete.</p>';
@@ -968,13 +1010,44 @@
     async function setUserTier(index) {
       const u = adminUserList[index];
       if (!u) return;
-      const sel = document.getElementById('tier_' + index);
-      const newTier = sel ? sel.value : '';
+      const newTier = document.getElementById('tier_' + index)?.value || '';
+      const newExpiry = document.getElementById('expiry_' + index)?.value || '';
+      const newTripsMax = parseInt(document.getElementById('tripsmax_' + index)?.value || '2');
       try {
-        const data = await apiPost({ action: 'adminSetTier', idToken: idToken, targetEmail: u.email, newTier: newTier });
+        const data = await apiPost({ action: 'adminSetTier', idToken: idToken, targetEmail: u.email, newTier: newTier, expiryDate: newExpiry, tripsMax: newTripsMax });
         if (data.success) loadAdminUsers();
         else alert('Errore: ' + data.error);
       } catch(e) { alert('Errore di rete'); }
+    }
+
+    async function toggleBlock(index) {
+      const u = adminUserList[index];
+      if (!u) return;
+      const isBlocked = u.blocked === true || u.blocked === 'TRUE';
+      if (!confirm((isBlocked ? 'Sbloccare ' : 'Bloccare ') + u.email + '?')) return;
+      try {
+        const data = await apiPost({ action: 'adminBlockUser', idToken: idToken, targetEmail: u.email, blocked: !isBlocked });
+        if (data.success) loadAdminUsers();
+        else alert('Errore: ' + data.error);
+      } catch(e) { alert('Errore di rete'); }
+    }
+
+    async function createUser() {
+      const emailVal = document.getElementById('newUserEmail')?.value?.trim();
+      const tierVal = document.getElementById('newUserTier')?.value;
+      const expiryVal = document.getElementById('newUserExpiry')?.value;
+      const tripsMaxVal = parseInt(document.getElementById('newUserTripsMax')?.value || '2');
+      const msg = document.getElementById('createUserMsg');
+      if (!emailVal || !emailVal.includes('@')) { msg.style.color='#ff5555'; msg.textContent='Email non valida.'; return; }
+      msg.style.color='#aaa'; msg.textContent='Creazione in corso...';
+      try {
+        const data = await apiPost({ action: 'adminCreateUser', idToken: idToken, email: emailVal, tier: tierVal, expiryDate: expiryVal, tripsMax: tripsMaxVal });
+        if (data.success) {
+          msg.style.color='#50fa7b'; msg.textContent='✅ Utente creato: ' + emailVal;
+          document.getElementById('newUserEmail').value = '';
+          loadAdminUsers();
+        } else { msg.style.color='#ff5555'; msg.textContent='Errore: ' + data.error; }
+      } catch(e) { msg.style.color='#ff5555'; msg.textContent='Errore di rete.'; }
     }
 
     // ==================== CARICAMENTO GOOGLE IDENTITY ====================
