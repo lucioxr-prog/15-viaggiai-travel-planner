@@ -318,6 +318,7 @@
       .glass { padding: 18px; }
     }
   </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <!-- Contenitore per il globo 3D -->
@@ -917,7 +918,9 @@
 
         // ---- SALVA ----
         html += `<button class="btn-primary" style="margin-top:15px; width:auto;"
-          onclick="saveTrip('${esc(trip.destinazione)}', ${trip.costoTotaleStimato != null ? Math.round(trip.costoTotaleStimato) : 0})">💾 Salva viaggio</button>`;
+          onclick="saveTrip('${esc(trip.destinazione)}', ${trip.costoTotaleStimato != null ? Math.round(trip.costoTotaleStimato) : 0})">💾 Salva viaggio</button>
+        ${tier === 'pro' || tier === 'admin' ? `<button class="btn-secondary" style="margin-top:15px; width:auto; background:#FF6600; border-color:#FF6600;"
+          onclick='generatePDF(${JSON.stringify("__TRIP__").replace(/"__TRIP__"/, "results["+idx+"]")})'>📄 Scarica PDF</button>` : '<span class="nota" style="margin-left:10px;">📄 PDF riservato agli utenti Pro</span>'}\`;
 
         html += `</div>`;
       });
@@ -1065,6 +1068,175 @@
       script.defer = true;
       document.head.appendChild(script);
     };
+  
+    // ==================== PDF EXPORT (Pro/Admin) ====================
+    function generatePDF(tripData) {
+      if (!tripData) { alert('Nessun dato viaggio disponibile.'); return; }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const W = 210, H = 297;
+      let y = 0;
+
+      function checkPage(needed) {
+        if (y + needed > H - 15) { doc.addPage(); y = 20; }
+      }
+
+      // --- COPERTINA ---
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, W, 60, 'F');
+      doc.setFillColor(255, 102, 0);
+      doc.rect(0, 55, W, 6, 'F');
+      doc.setTextColor(255, 102, 0);
+      doc.setFontSize(28);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ViaggiAI', 15, 30);
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Scopri. Pianifica. Parti.', 15, 42);
+      doc.setFontSize(10);
+      doc.text('Powered by SintesiDigitale · lucioxr@gmail.com', 15, 52);
+
+      // --- INTESTAZIONE VIAGGIO ---
+      y = 75;
+      doc.setTextColor(255, 102, 0);
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(tripData.destinazione || 'Destinazione'), 15, y);
+      y += 8;
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      if (tripData.giorni) doc.text('Durata: ' + tripData.giorni + ' giorni', 15, y);
+      y += 6;
+      if (tripData.costoTotaleStimato != null) {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 102, 0);
+        doc.text('Costo stimato: € ' + Math.round(tripData.costoTotaleStimato), 15, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(50, 50, 50);
+      }
+      y += 6;
+      if (tripData.meteo) {
+        doc.text('Meteo: ' + (tripData.meteo.descrizione || '') + '  ' + (tripData.meteo.tempMin || '') + '°/' + (tripData.meteo.tempMax || '') + '°C', 15, y);
+        y += 6;
+      }
+
+      // --- SEZIONE helper ---
+      function sectionTitle(title) {
+        checkPage(14);
+        y += 4;
+        doc.setFillColor(255, 102, 0);
+        doc.rect(15, y, 180, 7, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, 18, y + 5);
+        doc.setTextColor(50, 50, 50);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        y += 12;
+      }
+
+      function row(label, value) {
+        checkPage(7);
+        doc.setFont('helvetica', 'bold');
+        doc.text(label + ':', 18, y);
+        doc.setFont('helvetica', 'normal');
+        const lines = doc.splitTextToSize(String(value || 'N/D'), 140);
+        doc.text(lines, 55, y);
+        y += lines.length * 5 + 2;
+      }
+
+      // --- VOLI ---
+      if (tripData.voli && tripData.voli.length) {
+        sectionTitle('✈  VOLI');
+        tripData.voli.forEach((v, i) => {
+          checkPage(20);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Volo ' + (i+1) + ': ' + (v.compagnia || ''), 18, y); y += 5;
+          doc.setFont('helvetica', 'normal');
+          if (v.partenza) { doc.text('Partenza: ' + v.partenza, 22, y); y += 5; }
+          if (v.arrivo)   { doc.text('Arrivo: '   + v.arrivo,   22, y); y += 5; }
+          if (v.prezzo)   { doc.text('Prezzo: € ' + v.prezzo + ' ' + (v.valuta || ''), 22, y); y += 5; }
+          if (v.scali != null) { doc.text('Scali: ' + v.scali, 22, y); y += 5; }
+          if (v.link)     { doc.setTextColor(0,0,200); doc.text(v.link, 22, y); doc.setTextColor(50,50,50); y += 5; }
+          y += 2;
+        });
+      } else if (tripData.voliLink) {
+        sectionTitle('✈  VOLI');
+        doc.text('Cerca voli: ' + tripData.voliLink, 18, y); y += 6;
+        if (tripData.voliNota) { doc.text(tripData.voliNota, 18, y); y += 6; }
+      }
+
+      // --- TRENI ---
+      if (tripData.treni && tripData.treni.length) {
+        sectionTitle('🚆  TRENI');
+        tripData.treni.forEach(t => {
+          checkPage(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text(t.operatore || '', 18, y); y += 5;
+          doc.setFont('helvetica', 'normal');
+          if (t.nota) { doc.text(t.nota, 22, y); y += 5; }
+          if (t.link) { doc.setTextColor(0,0,200); doc.text(t.link, 22, y); doc.setTextColor(50,50,50); y += 5; }
+          y += 2;
+        });
+      }
+
+      // --- HOTEL ---
+      if (tripData.hotels && tripData.hotels.length) {
+        sectionTitle('🏨  ALLOGGI');
+        tripData.hotels.forEach((h, i) => {
+          checkPage(18);
+          doc.setFont('helvetica', 'bold');
+          doc.text((i+1) + '. ' + (h.nome || ''), 18, y); y += 5;
+          doc.setFont('helvetica', 'normal');
+          if (h.stelle)        { doc.text('Stelle: ' + h.stelle, 22, y); y += 5; }
+          if (h.prezzoTotale)  { doc.text('Prezzo: € ' + h.prezzoTotale + ' ' + (h.valuta || ''), 22, y); y += 5; }
+          if (h.link)          { doc.setTextColor(0,0,200); doc.text(h.link, 22, y); doc.setTextColor(50,50,50); y += 5; }
+          y += 2;
+        });
+      } else if (tripData.hotelLink) {
+        sectionTitle('🏨  ALLOGGI');
+        doc.text('Cerca hotel: ' + tripData.hotelLink, 18, y); y += 6;
+      }
+
+      // --- AUTO ---
+      if (tripData.auto) {
+        sectionTitle('🚗  AUTO / NOLEGGIO');
+        if (tripData.auto.distanzaKm) { doc.text('Distanza: ~' + tripData.auto.distanzaKm + ' km', 18, y); y += 5; }
+        if (tripData.auto.durataMin)  { doc.text('Tempo: ~' + Math.round(tripData.auto.durataMin/60) + 'h ' + (tripData.auto.durataMin%60) + 'min', 18, y); y += 5; }
+        if (tripData.auto.noleggio) {
+          doc.setTextColor(0,0,200);
+          doc.text('Rentalcars: ' + tripData.auto.noleggio.rentalcars, 18, y); y += 5;
+          doc.text('Kayak: ' + tripData.auto.noleggio.kayak, 18, y); y += 5;
+          doc.setTextColor(50,50,50);
+        }
+      }
+
+      // --- POI ---
+      if (tripData.pois && tripData.pois.length) {
+        sectionTitle('📍  ATTRAZIONI');
+        tripData.pois.forEach(p => {
+          checkPage(7);
+          doc.text('• ' + (p.nome || '') + ' (' + (p.tipo || '') + ')', 18, y); y += 5;
+        });
+      }
+
+      // --- FOOTER ---
+      const pages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('ViaggiAI · Powered by SintesiDigitale · I prezzi sono indicativi, verificare sul sito ufficiale.', 15, H - 8);
+        doc.text('Pagina ' + i + ' di ' + pages, W - 30, H - 8);
+      }
+
+      const filename = 'ViaggiAI_' + (tripData.destinazione || 'viaggio').replace(/[^a-zA-Z0-9]/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.pdf';
+      doc.save(filename);
+    }
+
   </script>
 </body>
 </html>
