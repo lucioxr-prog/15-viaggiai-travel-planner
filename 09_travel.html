@@ -645,6 +645,7 @@
         callback: handleCredentialResponse,
         auto_select: false
       });
+      if (idToken) return;
       google.accounts.id.prompt(function(notification) {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
           // One Tap bloccato (incognito/browser policy) - fallback renderButton
