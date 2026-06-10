@@ -660,6 +660,12 @@
 
     function handleCredentialResponse(response) {
       idToken = response.credential; // FIX: memorizziamo il token per le chiamate successive
+      if (window._tokenRefreshTimer) clearInterval(window._tokenRefreshTimer);
+      window._tokenRefreshTimer = setInterval(function() {
+        if (!user || !window.google) return;
+        google.accounts.id.initialize({ client_id: "515915761481-9b538gnhivl7nncufak6q7i3rvitgvbm.apps.googleusercontent.com", callback: function(r) { if (r.credential) { idToken = r.credential; } } });
+        google.accounts.id.prompt(function(n) { if (n.isSkippedMoment() || n.isDismissedMoment()) { idToken = null; user = null; tier = null; updateUI(); } });
+      }, 45 * 60 * 1000);
       apiPost({ action: 'login', idToken: idToken })
         .then(data => {
           if (data.success) {
@@ -674,7 +680,7 @@
 
     function logout() {
       try { google.accounts.id.disableAutoSelect(); } catch(e) {}
-      user = null; idToken = null; tier = null; tripsUsed = 0; updateUI();
+      user = null; idToken = null; tier = null; tripsUsed = 0; updateUI(); if (window._tokenRefreshTimer) { clearInterval(window._tokenRefreshTimer); window._tokenRefreshTimer = null; }
     }
 
     function updateTierBadge() {
