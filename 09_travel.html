@@ -837,7 +837,7 @@
           <h3>${esc(trip.destinazione)} <span class="tag">${esc(trip.giorni)} giorni</span></h3>`;
 
         if (trip.meteo) {
-          html += `<div class="weather-chip">🌤️ ${esc(trip.meteo.descrizione)} · ${esc(trip.meteo.tempMin)}°/${esc(trip.meteo.tempMax)}°C</div>`;
+          html += `<div class="weather-chip" style="color:#ffffff !important;">🌤️ ${esc(trip.meteo.descrizione)} · ${esc(trip.meteo.tempMin)}°/${esc(trip.meteo.tempMax)}°C</div>`;
         }
         if (trip.costoTotaleStimato != null) {
           html += `<p style="font-size:1.2rem;">Costo stimato (volo+hotel): <span class="price">${esc(Math.round(trip.costoTotaleStimato))} €</span></p>`;
@@ -1153,7 +1153,7 @@
 
       // --- VOLI ---
       if (tripData.voli && tripData.voli.length) {
-        sectionTitle('✈  VOLI');
+        sectionTitle('VOLI');
         tripData.voli.forEach((v, i) => {
           checkPage(20);
           doc.setFont('helvetica', 'bold');
@@ -1167,14 +1167,14 @@
           y += 2;
         });
       } else if (tripData.voliLink) {
-        sectionTitle('✈  VOLI');
+        sectionTitle('VOLI');
         doc.text('Cerca voli: ' + tripData.voliLink, 18, y); y += 6;
         if (tripData.voliNota) { doc.text(tripData.voliNota, 18, y); y += 6; }
       }
 
       // --- TRENI ---
       if (tripData.treni && tripData.treni.length) {
-        sectionTitle('🚆  TRENI');
+        sectionTitle('TRENI');
         tripData.treni.forEach(t => {
           checkPage(14);
           doc.setFont('helvetica', 'bold');
@@ -1188,7 +1188,7 @@
 
       // --- HOTEL ---
       if (tripData.hotels && tripData.hotels.length) {
-        sectionTitle('🏨  ALLOGGI');
+        sectionTitle('ALLOGGI');
         tripData.hotels.forEach((h, i) => {
           checkPage(18);
           doc.setFont('helvetica', 'bold');
@@ -1200,13 +1200,13 @@
           y += 2;
         });
       } else if (tripData.hotelLink) {
-        sectionTitle('🏨  ALLOGGI');
+        sectionTitle('ALLOGGI');
         doc.text('Cerca hotel: ' + tripData.hotelLink, 18, y); y += 6;
       }
 
       // --- AUTO ---
       if (tripData.auto) {
-        sectionTitle('🚗  AUTO / NOLEGGIO');
+        sectionTitle('AUTO / NOLEGGIO');
         if (tripData.auto.distanzaKm) { doc.text('Distanza: ~' + tripData.auto.distanzaKm + ' km', 18, y); y += 5; }
         if (tripData.auto.durataMin)  { doc.text('Tempo: ~' + Math.round(tripData.auto.durataMin/60) + 'h ' + (tripData.auto.durataMin%60) + 'min', 18, y); y += 5; }
         if (tripData.auto.noleggio) {
@@ -1219,7 +1219,7 @@
 
       // --- POI ---
       if (tripData.pois && tripData.pois.length) {
-        sectionTitle('📍  ATTRAZIONI');
+        sectionTitle('ATTRAZIONI');
         tripData.pois.forEach(p => {
           checkPage(7);
           doc.text('• ' + (p.nome || '') + ' (' + (p.tipo || '') + ')', 18, y); y += 5;
