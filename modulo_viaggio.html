@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ViaggiAI — Modulo di Viaggio | Confronta e Scegli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --orange: #FF6600;
+    --black: #000000;
+    --white: #FFFFFF;
+    --gray-bg: #f4f4f6;
+    --gray-border: #e1e1e6;
+    --gray-text: #555560;
+    --green: #1e9e62;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: var(--gray-bg);
+    color: var(--black);
+    padding-bottom: 60px;
+  }
+  header.top {
+    background: var(--black);
+    color: var(--white);
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header.top h1 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    margin: 0;
+    color: var(--white);
+  }
+  header.top h1 span { color: var(--orange); }
+  header.top .tagline {
+    font-size: 0.78rem;
+    color: #bbb;
+    margin-top: 2px;
+  }
+  main {
+    max-width: 1000px;
+    margin: 24px auto;
+    padding: 0 16px;
+  }
+  .panel {
+    background: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .panel h2 {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.05rem;
+    margin: 0 0 14px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-text);
+    display: block;
+    margin-bottom: 4px;
+  }
+  input[type="text"], input[type="date"], input[type="number"] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--gray-border);
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+  }
+  input:focus { outline: 2px solid var(--orange); border-color: var(--orange); }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 0.85rem;
+  }
+  .checkbox-row input { width: auto; }
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--orange); color: var(--white); }
+  .btn-secondary { background: var(--white); color: var(--black); border: 1px solid var(--gray-border); }
+  .btn-ghost { background: transparent; color: var(--orange); border: 1px dashed var(--orange); }
+  .btn-danger-icon { background: transparent; border: none; color: #c0392b; cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+  .actions-row { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+  #moduleArea { display: none; }
+  #moduleArea.visible { display: block; }
+
+  .category-card { margin-bottom: 18px; }
+  .category-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .category-title { font-family: 'Montserrat', sans-serif; font-size: 1rem; display:flex; align-items:center; gap:8px; }
+  .deep-links { display: flex; gap: 8px; flex-wrap: wrap; }
+  .deep-link-btn {
+    font-size: 0.78rem;
+    background: var(--black);
+    color: var(--white);
+    padding: 7px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .deep-link-btn:hover { background: var(--orange); }
+  .badge-fallback {
+    font-size: 0.68rem;
+    background: #fff3e6;
+    color: #b35900;
+    border: 1px solid #ffd9b3;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 4px;
+  }
+
+  table.options-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  table.options-table th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: var(--gray-text);
+    border-bottom: 2px solid var(--gray-border);
+    padding: 6px 6px;
+  }
+  table.options-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--gray-border);
+    vertical-align: middle;
+  }
+  table.options-table input[type="text"], table.options-table input[type="url"] {
+    padding: 6px 8px;
+    font-size: 0.82rem;
+  }
+  table.options-table input[type="number"] {
+    width: 90px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+    text-align: right;
+  }
+  .col-check { text-align: center; width: 50px; }
+  .col-del { width: 36px; text-align: center; }
+  .row-chosen { background: #fff7ef; }
+
+  .add-row-btn { margin-top: 8px; }
+
+  .subtotal-line {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 8px;
+    color: var(--gray-text);
+  }
+  .subtotal-line span.amount { color: var(--black); margin-left: 6px; }
+
+  #totalPanel {
+    background: var(--black);
+    color: var(--white);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: sticky;
+    bottom: 14px;
+  }
+  #totalPanel h2 { color: var(--white); }
+  .total-breakdown { font-size: 0.82rem; color: #ccc; margin-bottom: 10px; }
+  .total-breakdown div { display: flex; justify-content: space-between; padding: 2px 0; }
+  .grand-total {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--orange);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-top: 1px solid #444;
+    padding-top: 10px;
+  }
+
+  footer.brand {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--gray-text);
+    margin-top: 30px;
+  }
+  footer.brand b { color: var(--orange); }
+
+  @media print {
+    header.top, .actions-row, .deep-links, .add-row-btn, .btn-danger-icon, #inputPanel, .no-print { display: none !important; }
+    #totalPanel { position: static; background: var(--white); color: var(--black); border: 2px solid var(--black); }
+    #totalPanel h2, .grand-total { color: var(--black); }
+    body { background: var(--white); }
+  }
+
+  @media (max-width: 560px) {
+    table.options-table th:nth-child(2), table.options-table td:nth-child(2) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>Viaggi<span>AI</span></h1>
+    <div class="tagline">Scopri. Pianifica. Parti. • Dati reali, prenoti sui siti ufficiali</div>
+  </div>
+  <div class="no-print" style="font-size:0.78rem; color:#bbb;">📋 Modulo di Viaggio — Confronta e Scegli</div>
+</header>
+
+<main>
+
+  <section class="panel" id="inputPanel">
+    <h2>🧭 Dati del viaggio</h2>
+    <div class="form-grid">
+      <div>
+        <label for="destCity">Destinazione</label>
+        <input type="text" id="destCity" placeholder="es. Barcellona">
+      </div>
+      <div>
+        <label for="originCity">Città di partenza</label>
+        <input type="text" id="originCity" placeholder="es. Milano">
+      </div>
+      <div>
+        <label for="dateStart">Data andata</label>
+        <input type="date" id="dateStart">
+      </div>
+      <div>
+        <label for="dateEnd">Data ritorno</label>
+        <input type="date" id="dateEnd">
+      </div>
+      <div>
+        <label for="paxCount">Passeggeri</label>
+        <input type="number" id="paxCount" min="1" value="1">
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="ownCar">
+      <label for="ownCar" style="margin:0;">Viaggio con la mia auto (niente noleggio)</label>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="generateBtn">Genera modulo di confronto</button>
+      <button class="btn btn-secondary no-print" id="resetBtn">🗑 Nuovo modulo</button>
+    </div>
+  </section>
+
+  <section id="moduleArea">
+    <div id="categoriesContainer"></div>
+
+    <section class="panel" id="totalPanel">
+      <h2>💰 Totale viaggio</h2>
+      <div class="total-breakdown" id="breakdownArea"></div>
+      <div class="grand-total"><span>Totale stimato</span><span id="grandTotalAmount">€ 0,00</span></div>
+      <div class="actions-row no-print" style="margin-top:14px;">
+        <button class="btn btn-secondary" id="printBtn">🖨 Stampa / Esporta PDF</button>
+      </div>
+    </section>
+  </section>
+
+</main>
+
+<footer class="brand">powered by <b>SintesiDigitale</b></footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // CONFIGURAZIONE CATEGORIE
+  // ---------------------------------------------------------------------
+  var CATEGORIES = [
+    { key: "hotel",   icon: "🏨", label: "Hotel" },
+    { key: "voli",    icon: "✈️", label: "Voli" },
+    { key: "treni",   icon: "🚆", label: "Treni" },
+    { key: "transito", icon: "🚇", label: "Trasporto pubblico" },
+    { key: "auto",    icon: "🚗", label: "Auto a noleggio" }
+  ];
+  var MAX_ROWS_PER_CATEGORY = 5;
+  var STORAGE_KEY = "viaggiai_modulo_corrente_v1";
+
+  // ---------------------------------------------------------------------
+  // TABELLA CITTÀ -> CODICE KIWI (metropolitan/IATA). Copertura principali
+  // città italiane + destinazioni europee più comuni. Se la città non è in
+  // tabella, il link voli usa automaticamente il fallback Google Flights
+  // (ricerca testuale, nessun codice richiesto).
+  // ---------------------------------------------------------------------
+  var CITY_TO_KIWI = {
+    "roma": "ROM", "rome": "ROM",
+    "milano": "MIL", "milan": "MIL",
+    "napoli": "NAP", "naples": "NAP",
+    "torino": "TRN", "turin": "TRN",
+    "bologna": "BLQ",
+    "venezia": "VCE", "venice": "VCE",
+    "firenze": "FLR", "florence": "FLR",
+    "palermo": "PMO",
+    "catania": "CTA",
+    "bari": "BRI",
+    "cagliari": "CAG",
+    "verona": "VRN",
+    "genova": "GOA", "genoa": "GOA",
+    "pisa": "PSA",
+    "trieste": "TRS",
+    "olbia": "OLB",
+    "brindisi": "BDS",
+    "lamezia terme": "SUF",
+    "parigi": "PAR", "paris": "PAR",
+    "londra": "LON", "london": "LON",
+    "barcellona": "BCN", "barcelona": "BCN",
+    "madrid": "MAD",
+    "berlino": "BER", "berlin": "BER",
+    "amsterdam": "AMS",
+    "vienna": "VIE",
+    "praga": "PRG", "prague": "PRG",
+    "lisbona": "LIS", "lisbon": "LIS",
+    "atene": "ATH", "athens": "ATH",
+    "dublino": "DUB", "dublin": "DUB",
+    "bruxelles": "BRU", "brussels": "BRU",
+    "monaco di baviera": "MUC", "munich": "MUC",
+    "zurigo": "ZRH", "zurich": "ZRH",
+    "new york": "NYC",
+    "istanbul": "IST"
+  };
+
+  function normalizeCity(name) {
+    return (name || "")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // rimuove accenti
+  }
+
+  function lookupKiwiCode(cityName) {
+    return CITY_TO_KIWI[normalizeCity(cityName)] || null;
+  }
+
+  // ---------------------------------------------------------------------
+  // GENERATORI DI DEEP LINK
+  // ---------------------------------------------------------------------
+  function buildBookingLink(city, checkin, checkout, adults) {
+    var p = new URLSearchParams();
+    p.set("ss", city);
+    if (checkin) p.set("checkin", checkin);
+    if (checkout) p.set("checkout", checkout);
+    p.set("group_adults", adults || 1);
+    p.set("no_rooms", "1");
+    return { url: "https://www.booking.com/searchresults.html?" + p.toString(), fallback: false };
+  }
+
+  function buildFlightLink(originCity, destCity, dateStart, dateEnd) {
+    var fromCode = lookupKiwiCode(originCity);
+    var toCode = lookupKiwiCode(destCity);
+    if (fromCode && toCode) {
+      var p = new URLSearchParams();
+      p.set("from", fromCode);
+      p.set("to", toCode);
+      if (dateStart) p.set("departure", dateStart);
+      if (dateEnd) p.set("return", dateEnd);
+      return { url: "https://www.kiwi.com/deep?" + p.toString(), fallback: false };
+    }
+    // Fallback: Google Flights ricerca testuale, nessun codice IATA richiesto
+    var q = "Voli da " + (originCity || "") + " a " + (destCity || "");
+    if (dateStart) q += " il " + dateStart;
+    if (dateEnd) q += " ritorno il " + dateEnd;
+    return { url: "https://www.google.com/travel/flights?q=" + encodeURIComponent(q), fallback: true };
+  }
+
+  function buildTransitLink(originCity, destCity) {
+    var p = new URLSearchParams();
+    p.set("api", "1");
+    p.set("origin", originCity || "");
+    p.set("destination", destCity || "");
+    p.set("travelmode", "transit");
+    return { url: "https://www.google.com/maps/dir/?" + p.toString(), fallback: false };
+  }
+
+  function buildTrainSearchLink(originCity, destCity, dateStart) {
+    // Omio/Trenitalia richiedono ID interni proprietari non disponibili
+    // pubblicamente: usiamo una ricerca Google mirata, che in pratica
+    // restituisce sempre i risultati Trenitalia/Italo/Omio per la rotta.
+    var q = "treno da " + (originCity || "") + " a " + (destCity || "");
+    if (dateStart) q += " " + dateStart;
+    return { url: "https://www.google.com/search?q=" + encodeURIComponent(q), fallback: true };
+  }
+
+  function buildCarRentalSearchLink(destCity, dateStart, dateEnd) {
+    var q = "noleggio auto a " + (destCity || "");
+    if (dateStart) q += " dal " + dateStart;
+    if (dateEnd) q += " al " + dateEnd;
+    return { url: "https://www.google.com/search?q=" + encodeURIComponent(q), fallback: true };
+  }
+
+  // ---------------------------------------------------------------------
+  // STATO IN MEMORIA
+  // ---------------------------------------------------------------------
+  var state = {
+    trip: { destCity: "", originCity: "", dateStart: "", dateEnd: "", pax: 1, ownCar: false },
+    categories: {} // key -> [{name, link, price, chosen}]
+  };
+
+  function emptyRow() {
+    return { name: "", link: "", price: "", chosen: false };
+  }
+
+  function resetCategoriesState() {
+    state.categories = {};
+    CATEGORIES.forEach(function (c) {
+      state.categories[c.key] = [emptyRow()];
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // PERSISTENZA (localStorage) — solo su questo sito reale, non è un
+  // artifact Claude: qui localStorage è lecito e voluto per non perdere
+  // i prezzi inseriti manualmente al refresh della pagina.
+  // ---------------------------------------------------------------------
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn("Impossibile salvare lo stato:", e);
+    }
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.trip && parsed.categories) {
+        state = parsed;
+        return true;
+      }
+    } catch (e) {
+      console.warn("Impossibile leggere lo stato salvato:", e);
+    }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------------------
+  var el = {
+    destCity: document.getElementById("destCity"),
+    originCity: document.getElementById("originCity"),
+    dateStart: document.getElementById("dateStart"),
+    dateEnd: document.getElementById("dateEnd"),
+    paxCount: document.getElementById("paxCount"),
+    ownCar: document.getElementById("ownCar"),
+    generateBtn: document.getElementById("generateBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    printBtn: document.getElementById("printBtn"),
+    moduleArea: document.getElementById("moduleArea"),
+    categoriesContainer: document.getElementById("categoriesContainer"),
+    breakdownArea: document.getElementById("breakdownArea"),
+    grandTotalAmount: document.getElementById("grandTotalAmount")
+  };
+
+  function fillFormFromState() {
+    el.destCity.value = state.trip.destCity || "";
+    el.originCity.value = state.trip.originCity || "";
+    el.dateStart.value = state.trip.dateStart || "";
+    el.dateEnd.value = state.trip.dateEnd || "";
+    el.paxCount.value = state.trip.pax || 1;
+    el.ownCar.checked = !!state.trip.ownCar;
+  }
+
+  function readFormIntoState() {
+    state.trip.destCity = el.destCity.value.trim();
+    state.trip.originCity = el.originCity.value.trim();
+    state.trip.dateStart = el.dateStart.value;
+    state.trip.dateEnd = el.dateEnd.value;
+    state.trip.pax = parseInt(el.paxCount.value, 10) || 1;
+    state.trip.ownCar = el.ownCar.checked;
+  }
+
+  function formatEuro(n) {
+    var num = isNaN(n) ? 0 : n;
+    return "€ " + num.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function getDeepLinksForCategory(key) {
+    var t = state.trip;
+    switch (key) {
+      case "hotel":
+        return [Object.assign({ label: "Booking.com" }, buildBookingLink(t.destCity, t.dateStart, t.dateEnd, t.pax))];
+      case "voli":
+        return [Object.assign({ label: "Cerca volo" }, buildFlightLink(t.originCity, t.destCity, t.dateStart, t.dateEnd))];
+      case "treni":
+        return [Object.assign({ label: "Cerca treno" }, buildTrainSearchLink(t.originCity, t.destCity, t.dateStart))];
+      case "transito":
+        return [Object.assign({ label: "Percorso Google Maps" }, buildTransitLink(t.originCity, t.destCity))];
+      case "auto":
+        return [Object.assign({ label: "Cerca noleggio" }, buildCarRentalSearchLink(t.destCity, t.dateStart, t.dateEnd))];
+      default:
+        return [];
+    }
+  }
+
+  function renderCategories() {
+    el.categoriesContainer.innerHTML = "";
+    CATEGORIES.forEach(function (cat) {
+      if (cat.key === "auto" && state.trip.ownCar) return; // skip noleggio se viaggia con la propria auto
+
+      var card = document.createElement("div");
+      card.className = "panel category-card";
+      card.dataset.category = cat.key;
+
+      var head = document.createElement("div");
+      head.className = "category-head";
+
+      var title = document.createElement("div");
+      title.className = "category-title";
+      title.innerHTML = cat.icon + " " + cat.label;
+      head.appendChild(title);
+
+      var linksWrap = document.createElement("div");
+      linksWrap.className = "deep-links";
+      getDeepLinksForCategory(cat.key).forEach(function (l) {
+        var a = document.createElement("a");
+        a.href = l.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.className = "deep-link-btn";
+        a.innerHTML = "🔗 " + l.label + (l.fallback ? '<span class="badge-fallback">ricerca</span>' : "");
+        linksWrap.appendChild(a);
+      });
+      head.appendChild(linksWrap);
+      card.appendChild(head);
+
+      var table = document.createElement("table");
+      table.className = "options-table";
+      table.innerHTML =
+        "<thead><tr>" +
+        "<th>Fornitore</th><th>Link (opzionale)</th><th>Prezzo €</th>" +
+        '<th class="col-check">Scelto</th><th class="col-del"></th>' +
+        "</tr></thead><tbody></tbody>";
+      var tbody = table.querySelector("tbody");
+
+      state.categories[cat.key].forEach(function (row, idx) {
+        tbody.appendChild(renderRow(cat.key, row, idx));
+      });
+
+      card.appendChild(table);
+
+      var addBtn = document.createElement("button");
+      addBtn.className = "btn btn-ghost add-row-btn no-print";
+      addBtn.textContent = "+ Aggiungi opzione";
+      addBtn.addEventListener("click", function () {
+        if (state.categories[cat.key].length >= MAX_ROWS_PER_CATEGORY) return;
+        state.categories[cat.key].push(emptyRow());
+        saveState();
+        renderCategories();
+        renderTotals();
+      });
+      card.appendChild(addBtn);
+
+      var subtotal = document.createElement("div");
+      subtotal.className = "subtotal-line";
+      subtotal.innerHTML = "Subtotale categoria: <span class='amount' id='subtotal-" + cat.key + "'>€ 0,00</span>";
+      card.appendChild(subtotal);
+
+      el.categoriesContainer.appendChild(card);
+    });
+  }
+
+  function renderRow(catKey, row, idx) {
+    var tr = document.createElement("tr");
+    tr.className = row.chosen ? "row-chosen" : "";
+
+    var tdName = document.createElement("td");
+    var inName = document.createElement("input");
+    inName.type = "text";
+    inName.placeholder = "es. Hotel Centrale";
+    inName.value = row.name;
+    inName.addEventListener("input", function () {
+      state.categories[catKey][idx].name = inName.value;
+      saveState();
+    });
+    tdName.appendChild(inName);
+    tr.appendChild(tdName);
+
+    var tdLink = document.createElement("td");
+    var inLink = document.createElement("input");
+    inLink.type = "url";
+    inLink.placeholder = "https://...";
+    inLink.value = row.link;
+    inLink.addEventListener("input", function () {
+      state.categories[catKey][idx].link = inLink.value;
+      saveState();
+    });
+    tdLink.appendChild(inLink);
+    tr.appendChild(tdLink);
+
+    var tdPrice = document.createElement("td");
+    var inPrice = document.createElement("input");
+    inPrice.type = "number";
+    inPrice.step = "0.01";
+    inPrice.min = "0";
+    inPrice.placeholder = "0.00";
+    inPrice.value = row.price;
+    inPrice.addEventListener("input", function () {
+      state.categories[catKey][idx].price = inPrice.value;
+      saveState();
+      renderTotals();
+    });
+    tdPrice.appendChild(inPrice);
+    tr.appendChild(tdPrice);
+
+    var tdCheck = document.createElement("td");
+    tdCheck.className = "col-check";
+    var inCheck = document.createElement("input");
+    inCheck.type = "checkbox";
+    inCheck.checked = row.chosen;
+    inCheck.addEventListener("change", function () {
+      state.categories[catKey][idx].chosen = inCheck.checked;
+      saveState();
+      tr.className = inCheck.checked ? "row-chosen" : "";
+      renderTotals();
+    });
+    tdCheck.appendChild(inCheck);
+    tr.appendChild(tdCheck);
+
+    var tdDel = document.createElement("td");
+    tdDel.className = "col-del no-print";
+    if (state.categories[catKey].length > 1) {
+      var delBtn = document.createElement("button");
+      delBtn.className = "btn-danger-icon";
+      delBtn.innerHTML = "✕";
+      delBtn.title = "Rimuovi opzione";
+      delBtn.addEventListener("click", function () {
+        state.categories[catKey].splice(idx, 1);
+        saveState();
+        renderCategories();
+        renderTotals();
+      });
+      tdDel.appendChild(delBtn);
+    }
+    tr.appendChild(tdDel);
+
+    return tr;
+  }
+
+  function renderTotals() {
+    var grand = 0;
+    var breakdownHtml = "";
+    CATEGORIES.forEach(function (cat) {
+      if (cat.key === "auto" && state.trip.ownCar) return;
+      var rows = state.categories[cat.key] || [];
+      var sub = 0;
+      rows.forEach(function (r) {
+        if (r.chosen) {
+          var v = parseFloat(r.price);
+          if (!isNaN(v)) sub += v;
+        }
+      });
+      grand += sub;
+      var subtotalEl = document.getElementById("subtotal-" + cat.key);
+      if (subtotalEl) subtotalEl.textContent = formatEuro(sub);
+      breakdownHtml += "<div><span>" + cat.icon + " " + cat.label + "</span><span>" + formatEuro(sub) + "</span></div>";
+    });
+    el.breakdownArea.innerHTML = breakdownHtml;
+    el.grandTotalAmount.textContent = formatEuro(grand);
+  }
+
+  // ---------------------------------------------------------------------
+  // EVENTI
+  // ---------------------------------------------------------------------
+  el.generateBtn.addEventListener("click", function () {
+    readFormIntoState();
+    if (!state.trip.destCity) {
+      alert("Inserisci almeno la destinazione prima di generare il modulo.");
+      return;
+    }
+    if (Object.keys(state.categories).length === 0 ||
+        CATEGORIES.some(function (c) { return !state.categories[c.key]; })) {
+      resetCategoriesState();
+    }
+    saveState();
+    renderCategories();
+    renderTotals();
+    el.moduleArea.classList.add("visible");
+  });
+
+  el.resetBtn.addEventListener("click", function () {
+    if (!confirm("Vuoi davvero cancellare il modulo corrente e ripartire da zero?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    state = { trip: { destCity: "", originCity: "", dateStart: "", dateEnd: "", pax: 1, ownCar: false }, categories: {} };
+    resetCategoriesState();
+    fillFormFromState();
+    el.moduleArea.classList.remove("visible");
+    el.categoriesContainer.innerHTML = "";
+    el.breakdownArea.innerHTML = "";
+    el.grandTotalAmount.textContent = formatEuro(0);
+  });
+
+  el.printBtn.addEventListener("click", function () {
+    window.print();
+  });
+
+  [el.destCity, el.originCity, el.dateStart, el.dateEnd, el.paxCount, el.ownCar].forEach(function (input) {
+    input.addEventListener("change", function () {
+      readFormIntoState();
+      saveState();
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // INIT
+  // ---------------------------------------------------------------------
+  function init() {
+    var restored = loadState();
+    if (restored) {
+      fillFormFromState();
+      renderCategories();
+      renderTotals();
+      el.moduleArea.classList.add("visible");
+    } else {
+      resetCategoriesState();
+    }
+  }
+
+  // Esposto per i test automatici headless (jsdom) — non usato in produzione
+  window.__viaggiaiTestHooks = {
+    getState: function () { return state; },
+    buildBookingLink: buildBookingLink,
+    buildFlightLink: buildFlightLink,
+    buildTransitLink: buildTransitLink,
+    buildTrainSearchLink: buildTrainSearchLink,
+    buildCarRentalSearchLink: buildCarRentalSearchLink,
+    lookupKiwiCode: lookupKiwiCode
+  };
+
+  init();
+})();
+</script>
+
+</body>
+</html>

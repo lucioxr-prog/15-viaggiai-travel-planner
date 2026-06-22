@@ -873,9 +873,9 @@ function handleAdminListUsers_(payload) {
     users.push({ email: data[i][0], tier: data[i][1] || 'trial',
       tripsUsed: Number(data[i][2] || 0),
       status: blocked ? 'blocked' : (data[i][3] || 'active'),
-      createdAt: data[i][4] ? new Date(data[i][4]).toLocaleDateString('it-IT') : '',
-      updatedAt: data[i][5] ? new Date(data[i][5]).toLocaleDateString('it-IT') : '',
-      note: data[i][6] || '', expiryDate: data[i][7] || null,
+      createdAt: data[i][4] ? Utilities.formatDate(new Date(data[i][4]), 'Europe/Rome', 'dd/MM/yyyy') : '',
+      updatedAt: data[i][5] ? Utilities.formatDate(new Date(data[i][5]), 'Europe/Rome', 'dd/MM/yyyy') : '',
+      note: data[i][6] || '', expiryDate: data[i][7] ? Utilities.formatDate(new Date(data[i][7]), 'Europe/Rome', 'dd/MM/yyyy') : null,
       createdBy: data[i][8] || '', tripsMax: data[i][9] ? Number(data[i][9]) : null, blocked: blocked });
   }
   return jsonOut_({ success: true, users: users });
@@ -1074,3 +1074,7 @@ function saveKeysExample() {
   }, false);
   SpreadsheetApp.getActiveSpreadsheet().toast('Chiavi salvate in Script Properties.');
 }
+
+// ============================================================
+// MIGRAZIONE — eseguire UNA VOLTA dall'editor GAS poi eliminare
+// ============================================================
