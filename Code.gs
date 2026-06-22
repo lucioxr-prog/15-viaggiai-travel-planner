@@ -224,6 +224,8 @@ function handleSearch_(payload, t0) {
   const adults    = Math.max(1, parseInt(payload.adults || '1', 10));
   const prefTransport = payload.preferTransport || '';
   const prefLodging   = payload.preferLodging || '';
+  const ownCar        = !!payload.ownCar;
+  const boardType     = payload.boardType || '';
 
   if (!originRaw || !dateFrom || !dateTo) {
     return jsonOut_({ success: false, error: 'Origine e date sono obbligatorie.' });
@@ -284,7 +286,7 @@ function handleSearch_(payload, t0) {
   // --- AUTO (percorso reale via ORS + deep link noleggio) ---
   let auto = null;
   try {
-    auto = buildCarOption_(geoOrigin, geoDest, origin, dest, dateFrom, dateTo);
+    auto = buildCarOption_(geoOrigin, geoDest, origin, dest, dateFrom, dateTo, ownCar);
   } catch (err) { /* non bloccante */ }
 
   // --- POI ---
@@ -331,13 +333,15 @@ function handleSearch_(payload, t0) {
     hotelsNota: (cfg_('AMADEUS_ENV') === 'test' && hotels.length)
       ? 'Prezzi da ambiente Amadeus "test" (dataset limitato): verifica sempre sul sito di prenotazione.'
       : (hotels.length ? null : 'Prezzi live non disponibili: usa il link di ricerca.'),
+    boardLabel: boardType === 'half' ? 'Mezza pensione' : boardType === 'full' ? 'Pensione completa' : boardType === 'room' ? 'Solo pernottamento' : null,
+    boardNota: boardType ? 'Il tipo di trattamento non viene filtrato automaticamente: verifica la disponibilità sul sito di prenotazione.' : null,
 
     auto: auto,
 
     pois: pois,
     poisError: poisError,
 
-    preferenze: { transport: prefTransport, lodging: prefLodging }
+    preferenze: { transport: prefTransport, lodging: prefLodging, board: boardType }
   };
 
   // Il viaggio Trial e' gia' stato consumato atomicamente prima della ricerca.
@@ -510,13 +514,14 @@ function searchHotels_(city, checkIn, checkOut, adults) {
 function buildTrainOptions_(originRaw, destRaw, originCity, destCity, date) {
   const opts = [];
 
-  // Link universale Omio: copre Trenitalia, Italo, DB, SNCF, ecc. con prezzi reali sul loro sito
+  // Ricerca Google: nessuno slug interno indovinato (Omio/Trenitalia non hanno
+  // API pubblica con ID), ma porta sempre ai risultati reali per la tratta.
+  let q = 'treno da ' + (originCity || '') + ' a ' + (destCity || '');
+  if (date) q += ' ' + date;
   opts.push({
-    operatore: 'Omio (tutti gli operatori)',
-    nota: 'Confronta Trenitalia, Italo, DB, SNCF in una ricerca',
-    link: 'https://www.omio.com/search-frontend/results/'
-      + encodeURIComponent(originCity) + '/' + encodeURIComponent(destCity)
-      + '?departureDate=' + (date || '')
+    operatore: 'Cerca treni (Trenitalia/Italo/Omio)',
+    nota: 'Confronta Trenitalia, Italo, DB, SNCF per questa tratta',
+    link: 'https://www.google.com/search?q=' + encodeURIComponent(q)
   });
 
   // Operatore in base al paese dell'origine (best-effort)
@@ -544,12 +549,14 @@ function buildTrainOptions_(originRaw, destRaw, originCity, destCity, date) {
  * AUTO — percorso reale (OpenRouteService) + deep link noleggio
  * ==========================================================================================*/
 
-function buildCarOption_(geoOrigin, geoDest, originCity, destCity, dateFrom, dateTo) {
+function buildCarOption_(geoOrigin, geoDest, originCity, destCity, dateFrom, dateTo, ownCar) {
   const out = {
     distanzaKm: null,
     durataMin: null,
     percorsoNota: null,
-    noleggio: {
+    ownCarMode: !!ownCar,
+    // Se viaggia con la propria auto, nessun mezzo da noleggiare: niente link.
+    noleggio: ownCar ? null : {
       rentalcars: rentalcarsLink_(destCity, dateFrom, dateTo),
       kayak: kayakCarsLink_(destCity, dateFrom, dateTo)
     }
@@ -690,11 +697,51 @@ function geocode_(city) {
  * DEEP LINK BUILDERS (fallback "real link")
  * ==========================================================================================*/
 
+// Tabella citta' -> codice Kiwi (IATA/metropolitan). Stessa tabella usata in
+// modulo_viaggio.html, per coerenza. Se la citta' non e' mappata, fallback
+// honest su Google Flights (ricerca testuale, nessun dato inventato).
+var CITY_TO_KIWI_ = {
+  "roma": "ROM", "rome": "ROM", "milano": "MIL", "milan": "MIL",
+  "napoli": "NAP", "naples": "NAP", "torino": "TRN", "turin": "TRN",
+  "bologna": "BLQ", "venezia": "VCE", "venice": "VCE",
+  "firenze": "FLR", "florence": "FLR", "palermo": "PMO", "catania": "CTA",
+  "bari": "BRI", "cagliari": "CAG", "verona": "VRN",
+  "genova": "GOA", "genoa": "GOA", "pisa": "PSA", "trieste": "TRS",
+  "olbia": "OLB", "brindisi": "BDS", "lamezia terme": "SUF",
+  "parigi": "PAR", "paris": "PAR", "londra": "LON", "london": "LON",
+  "barcellona": "BCN", "barcelona": "BCN", "madrid": "MAD",
+  "berlino": "BER", "berlin": "BER", "amsterdam": "AMS", "vienna": "VIE",
+  "praga": "PRG", "prague": "PRG", "lisbona": "LIS", "lisbon": "LIS",
+  "atene": "ATH", "athens": "ATH", "dublino": "DUB", "dublin": "DUB",
+  "bruxelles": "BRU", "brussels": "BRU",
+  "monaco di baviera": "MUC", "munich": "MUC",
+  "zurigo": "ZRH", "zurich": "ZRH", "new york": "NYC", "istanbul": "IST"
+};
+
+function normalizeCity_(name) {
+  return String(name || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // rimuove accenti
+}
+
+function lookupKiwiCode_(city) {
+  return CITY_TO_KIWI_[normalizeCity_(city)] || null;
+}
+
 function flightSearchLink_(origin, dest, dateFrom, dateTo, adults) {
-  // Kiwi search page precompilata (robusta). In alternativa Google Flights.
-  return 'https://www.kiwi.com/en/search/results/'
-    + encodeURIComponent(origin) + '/' + encodeURIComponent(dest)
-    + '/' + (dateFrom || '') + '/' + (dateTo || '');
+  const fromCode = lookupKiwiCode_(origin);
+  const toCode = lookupKiwiCode_(dest);
+  if (fromCode && toCode) {
+    // Formato deep-link ufficiale Kiwi (verificato): kiwi.com/deep?from=&to=&departure=&return=
+    let url = 'https://www.kiwi.com/deep?from=' + fromCode + '&to=' + toCode;
+    if (dateFrom) url += '&departure=' + dateFrom;
+    if (dateTo) url += '&return=' + dateTo;
+    return url;
+  }
+  // Citta' non in tabella -> fallback honest, nessun dato/slug inventato
+  let q = 'Voli da ' + (origin || '') + ' a ' + (dest || '');
+  if (dateFrom) q += ' il ' + dateFrom;
+  if (dateTo) q += ' ritorno il ' + dateTo;
+  return 'https://www.google.com/travel/flights?q=' + encodeURIComponent(q);
 }
 
 function bookingLink_(city, checkIn, checkOut, adults) {
