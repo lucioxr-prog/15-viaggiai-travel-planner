@@ -235,6 +235,16 @@
 </head>
 <body>
 
+<div id="passwordGate" style="position:fixed; inset:0; background:#000000; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#FFFFFF; border-radius:10px; padding:32px 28px; max-width:340px; width:100%; text-align:center;">
+    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.3rem; margin-bottom:4px;">Viaggi<span style="color:#FF6600;">AI</span></div>
+    <div style="font-size:0.78rem; color:#777; margin-bottom:20px;">Accesso riservato — inserisci la password</div>
+    <input type="password" id="gatePasswordInput" placeholder="Password" style="width:100%; padding:10px 12px; border:1px solid #e1e1e6; border-radius:6px; font-family:'Inter',sans-serif; font-size:0.9rem; margin-bottom:10px; box-sizing:border-box;">
+    <div id="gateError" style="color:#c0392b; font-size:0.78rem; margin-bottom:10px; display:none;">Password errata, riprova.</div>
+    <button id="gateSubmitBtn" style="width:100%; background:#FF6600; color:#FFFFFF; border:none; border-radius:6px; padding:10px; font-family:'Inter',sans-serif; font-weight:600; font-size:0.85rem; cursor:pointer;">Entra</button>
+  </div>
+</div>
+
 <header class="top">
   <div>
     <h1>Viaggi<span>AI</span></h1>
@@ -297,6 +307,49 @@
 <footer class="brand">powered by <b>SintesiDigitale</b></footer>
 
 <script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // GATE PASSWORD — deterrente per curiosi, NON è sicurezza reale.
+  // Qualsiasi pagina statica scaricata dal browser è leggibile da chiunque
+  // apra "Visualizza sorgente": la password qui sotto è visibile a chi
+  // la cerca attivamente. Scelta consapevole: nessun dato sensibile è
+  // gestito da questo modulo (nessun login utente, nessun dato di
+  // pagamento), quindi un deterrente semplice è proporzionato al rischio.
+  // ---------------------------------------------------------------------
+  var GATE_PASSWORD = "ViaggiAI2026!";
+  var GATE_SESSION_KEY = "viaggiai_modulo_unlocked";
+
+  var gateEl = document.getElementById("passwordGate");
+  var gateInput = document.getElementById("gatePasswordInput");
+  var gateError = document.getElementById("gateError");
+  var gateBtn = document.getElementById("gateSubmitBtn");
+
+  function tryUnlock() {
+    if (gateInput.value === GATE_PASSWORD) {
+      try { sessionStorage.setItem(GATE_SESSION_KEY, "1"); } catch (e) {}
+      gateEl.style.display = "none";
+    } else {
+      gateError.style.display = "block";
+      gateInput.value = "";
+      gateInput.focus();
+    }
+  }
+
+  var alreadyUnlocked = false;
+  try { alreadyUnlocked = sessionStorage.getItem(GATE_SESSION_KEY) === "1"; } catch (e) {}
+  if (alreadyUnlocked) {
+    gateEl.style.display = "none";
+  } else {
+    gateBtn.addEventListener("click", tryUnlock);
+    gateInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") tryUnlock();
+    });
+    gateInput.focus();
+  }
+})();
+
 (function () {
   "use strict";
 
