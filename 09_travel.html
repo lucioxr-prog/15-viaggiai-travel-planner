@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>ViaggiAI • Il tuo pianificatore di viaggi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -130,6 +130,44 @@
       box-shadow: 0 0 20px rgba(0,229,255,0.3);
       background: rgba(255,255,255,0.1);
     }
+
+    /* ========== ACCESSIBILITA' / SKIN FORM ========== */
+    input[type="checkbox"] { accent-color: #00e5ff; }
+    .field-label {
+      display: block;
+      font-size: 0.78rem;
+      color: #888;
+      margin: 10px 0 2px 2px;
+      letter-spacing: 0.3px;
+    }
+    .checkbox-row {
+      display: flex; align-items: center; gap: 8px; margin: 10px 0;
+    }
+    .checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
+    .checkbox-row label { margin: 0; font-size: 0.9rem; color: #ccc; }
+
+    /* ========== PANNELLO ADMIN (estratto da style inline) ========== */
+    .admin-box {
+      background: rgba(179,136,255,0.08);
+      border: 1px solid rgba(179,136,255,0.25);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .admin-box h3 { color: #b388ff; margin: 0 0 12px 0; font-size: 1rem; }
+    .admin-form-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .admin-field { display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+    .admin-field.email { flex: 2; min-width: 180px; }
+    .admin-field.expiry { min-width: 130px; }
+    .admin-field.trips { min-width: 80px; }
+    .admin-field label { font-size: 0.75rem; color: #aaa; }
+    .admin-field input, .admin-field select {
+      padding: 8px 12px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 0.9rem;
+    }
+    .admin-field input { background: rgba(255,255,255,0.05); }
+    .admin-field select { background: rgba(30,30,50,0.9); }
+    .admin-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .flex-row { display: flex; gap: 12px; }
     .btn-primary {
       background: linear-gradient(135deg, #00e5ff, #b388ff);
@@ -353,28 +391,50 @@
       <div class="glass" id="wizard" style="display:none;">
         <div id="step1" class="step active">
           <h2>🌐 1. Dati del viaggio</h2>
+          <label class="field-label" for="origin">Città di partenza</label>
           <input type="text" id="origin" placeholder="Città, Paese (es. Milano, Italia) o indirizzo completo" value="Milano, Italia">
           <div class="flex-row">
-            <input type="date" id="dateFrom">
-            <input type="date" id="dateTo">
+            <div style="flex:1;">
+              <label class="field-label" for="dateFrom">Partenza</label>
+              <input type="date" id="dateFrom">
+            </div>
+            <div style="flex:1;">
+              <label class="field-label" for="dateTo">Ritorno</label>
+              <input type="date" id="dateTo">
+            </div>
           </div>
+          <label class="field-label" for="adults">Numero persone</label>
           <input type="number" id="adults" value="1" min="1" placeholder="Numero persone">
           <button class="btn-primary" onclick="nextStep(2)">Avanti →</button>
         </div>
         <div id="step2" class="step">
           <h2>💰 2. Budget e preferenze</h2>
+          <label class="field-label" for="budget">Budget totale (opzionale)</label>
           <input type="number" id="budget" placeholder="Budget totale (€) - opzionale">
+          <label class="field-label" for="preferTransport">Trasporto preferito</label>
           <select id="preferTransport">
             <option value="">Qualsiasi trasporto</option>
             <option value="flight">✈️ Aereo</option>
             <option value="train">🚆 Treno</option>
             <option value="car">🚗 Auto</option>
           </select>
+          <label class="field-label" for="preferLodging">Alloggio preferito</label>
           <select id="preferLodging">
             <option value="">Qualsiasi alloggio</option>
             <option value="hotel">🏨 Hotel</option>
             <option value="apartment">🏡 Appartamento</option>
           </select>
+          <label class="field-label" for="boardType">Trattamento</label>
+          <select id="boardType">
+            <option value="">Trattamento: qualsiasi</option>
+            <option value="room">🛏️ Solo pernottamento</option>
+            <option value="half">🍽️ Mezza pensione</option>
+            <option value="full">🍽️🍽️ Pensione completa</option>
+          </select>
+          <div class="checkbox-row">
+            <input type="checkbox" id="ownCar">
+            <label for="ownCar">🚗 Viaggio con la mia auto (niente noleggio)</label>
+          </div>
           <div class="flex-row">
             <button class="btn-secondary" onclick="prevStep(1)">← Indietro</button>
             <button class="btn-primary" onclick="nextStep(3)">Avanti →</button>
@@ -382,7 +442,9 @@
         </div>
         <div id="step3" class="step">
           <h2>📍 3. Destinazione e tappe</h2>
-          <input type="text" id="destination" placeholder="Città, Paese (es. Parigi, Francia) o indirizzo. Lascia vuoto per suggerimenti">
+          <label class="field-label" for="destination">Destinazione principale</label>
+          <input type="text" id="destination" placeholder="Città, Paese (es. Roma, Italia) o indirizzo. Lascia vuoto per suggerimenti">
+          <label class="field-label">Tappe intermedie (opzionale)</label>
           <div id="tappeContainer">
             <input type="text" class="tappa" placeholder="Tappa intermedia (Città, Paese)">
           </div>
@@ -415,34 +477,34 @@
       <!-- PANNELLO ADMIN (solo admin) -->
       <div class="glass" id="adminContainer" style="display:none;">
         <h2 style="color:#b388ff; margin-bottom:15px;">🔧 Pannello Admin — Gestione utenti</h2>
-        <div style="background:rgba(179,136,255,0.08); border:1px solid rgba(179,136,255,0.25); border-radius:12px; padding:16px; margin-bottom:20px;">
-          <h3 style="color:#b388ff; margin:0 0 12px 0; font-size:1rem;">➕ Crea nuovo utente</h3>
-          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
-            <div style="display:flex; flex-direction:column; gap:4px; flex:2; min-width:180px;">
-              <label style="font-size:0.75rem; color:#aaa;">Email</label>
-              <input type="email" id="newUserEmail" placeholder="utente@esempio.com" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; font-size:0.9rem;">
+        <div class="admin-box">
+          <h3>➕ Crea nuovo utente</h3>
+          <div class="admin-form-row">
+            <div class="admin-field email">
+              <label>Email</label>
+              <input type="email" id="newUserEmail" placeholder="utente@esempio.com">
             </div>
-            <div style="display:flex; flex-direction:column; gap:4px; min-width:100px;">
-              <label style="font-size:0.75rem; color:#aaa;">Tier</label>
-              <select id="newUserTier" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(30,30,50,0.9); color:#fff;">
+            <div class="admin-field">
+              <label>Tier</label>
+              <select id="newUserTier">
                 <option value="trial">Trial</option>
                 <option value="pro">Pro</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
-            <div style="display:flex; flex-direction:column; gap:4px; min-width:130px;">
-              <label style="font-size:0.75rem; color:#aaa;">Scadenza</label>
-              <input type="date" id="newUserExpiry" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(30,30,50,0.9); color:#fff;">
+            <div class="admin-field expiry">
+              <label>Scadenza</label>
+              <input type="date" id="newUserExpiry">
             </div>
-            <div style="display:flex; flex-direction:column; gap:4px; min-width:80px;">
-              <label style="font-size:0.75rem; color:#aaa;">Max viaggi</label>
-              <input type="number" id="newUserTripsMax" value="2" min="1" max="9999" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; width:80px;">
+            <div class="admin-field trips">
+              <label>Max viaggi</label>
+              <input type="number" id="newUserTripsMax" value="2" min="1" max="9999" style="width:80px;">
             </div>
             <button class="book-btn" onclick="createUser()" style="white-space:nowrap;">➕ Crea utente</button>
           </div>
           <div id="createUserMsg" style="margin-top:8px; font-size:0.85rem;"></div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div class="admin-row-header">
           <h3 style="color:#b388ff; margin:0; font-size:1rem;">👥 Utenti registrati</h3>
           <button class="btn-secondary" style="width:auto;" onclick="loadAdminUsers()">↻ Aggiorna</button>
         </div>
@@ -759,6 +821,8 @@
       const budget = document.getElementById('budget').value;
       const preferTransport = document.getElementById('preferTransport').value;
       const preferLodging = document.getElementById('preferLodging').value;
+      const boardType = document.getElementById('boardType').value;
+      const ownCar = document.getElementById('ownCar').checked;
       const tappeRaw = [...document.querySelectorAll('.tappa')].map(el => el.value.trim()).filter(v => v);
 
       if (!originRaw || !dateFrom || !dateTo) { alert('Riempi origine e date!'); return; }
@@ -777,6 +841,8 @@
         adults: parseInt(adults),
         preferTransport,
         preferLodging,
+        boardType,
+        ownCar,
         tappe: tappeRaw
       };
 
@@ -795,12 +861,17 @@
                <p class="nota">Contatta l'amministratore per passare a Pro e sbloccare ricerche illimitate.</p>
              </div>`;
         } else {
-          document.getElementById('results').innerHTML = `<p style="color:#ff5252;">Errore: ${esc(data.error)}</p>`;
+          // Errore di validazione/business riportato dal server (es. campi mancanti, limite giornaliero)
+          document.getElementById('results').innerHTML = `<p style="color:#ffc107;">⚠️ ${esc(data.error)}</p>`;
         }
       } catch(e) {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('resultsContainer').style.display = 'block';
-        document.getElementById('results').innerHTML = `<p style="color:#ff5252;">Errore di connessione al backend. Verifica BACKEND_URL e il deploy.</p>`;
+        console.error('Errore ricerca:', e);
+        const msg = (e instanceof TypeError)
+          ? '🔌 Connessione assente: controlla la tua rete e riprova.'
+          : '🔌 Il servizio non risponde correttamente. Riprova in qualche secondo.';
+        document.getElementById('results').innerHTML = `<p style="color:#ff5252;">${msg}</p>`;
       }
     }
 
@@ -839,8 +910,14 @@
         if (trip.meteo) {
           html += `<div class="weather-chip" style="color:#ffffff !important;">🌤️ ${esc(trip.meteo.descrizione)} · ${esc(trip.meteo.tempMin)}°/${esc(trip.meteo.tempMax)}°C</div>`;
         }
+        if (trip.boardLabel) {
+          html += `<div class="weather-chip" style="color:#ffffff !important;">🍽️ ${esc(trip.boardLabel)}</div>`;
+          if (trip.boardNota) html += `<p class="nota" style="font-size:0.8rem;">${esc(trip.boardNota)}</p>`;
+        }
         if (trip.costoTotaleStimato != null) {
-          html += `<p style="font-size:1.2rem;">Costo stimato (volo+hotel): <span class="price">${esc(Math.round(trip.costoTotaleStimato))} €</span></p>`;
+          html += `<p style="font-size:1.2rem;">Costo stimato (volo+hotel): <span class="price" id="totalCost-${idx}">${esc(Math.round(trip.costoTotaleStimato))} €</span></p>`;
+        } else {
+          html += `<p style="font-size:1.2rem;">Costo stimato: <span class="price" id="totalCost-${idx}">0 €</span></p>`;
         }
 
         // ---- VOLI ----
@@ -906,6 +983,14 @@
             html += `<a class="book-btn" href="${esc(trip.auto.noleggio.rentalcars)}" target="_blank" rel="noopener">🚙 Noleggia (Rentalcars)</a>`;
             html += `<a class="book-btn" href="${esc(trip.auto.noleggio.kayak)}" target="_blank" rel="noopener">🚙 Confronta (Kayak)</a>`;
           }
+          if (trip.auto.ownCarMode) {
+            html += `<div style="margin-top:10px;">
+              <label style="font-size:0.85rem; color:#aaa; display:block; margin-bottom:4px;">Costo stimato viaggio in auto (carburante/pedaggi, inserimento manuale):</label>
+              <input type="number" min="0" step="1" placeholder="es. 80" style="max-width:160px; display:inline-block;"
+                oninput="updateManualAutoCost(${idx}, this.value)">
+              <span style="color:#aaa;"> €</span>
+            </div>`;
+          }
           html += `</details>`;
         }
 
@@ -925,7 +1010,7 @@
         html += `<div class="map-container" id="map-${idx}"></div>`;
 
         // ---- SALVA ----
-        html += '<button class="btn-primary" style="margin-top:15px; width:auto;" onclick="saveTrip(\'' + esc(trip.destinazione) + '\',' + (trip.costoTotaleStimato != null ? Math.round(trip.costoTotaleStimato) : 0) + ')">\uD83D\uDCBE Salva viaggio</button>';
+        html += '<button class="btn-primary" style="margin-top:15px; width:auto;" onclick="saveTrip(\'' + esc(trip.destinazione) + '\', window._viaggiaiResults[' + idx + '].costoTotaleStimato || 0)">\uD83D\uDCBE Salva viaggio</button>';
         if (window._viaggiaiTier === 'pro' || window._viaggiaiTier === 'admin' || tier === 'pro' || tier === 'admin') {
           html += '<button class="btn-secondary" style="margin-top:15px; width:auto; background:#FF6600; border-color:#FF6600;" onclick="generatePDF(window._viaggiaiResults[' + idx + '])">\uD83D\uDCC4 Scarica PDF</button>';
         } else {
@@ -950,6 +1035,19 @@
         valid.forEach(p => L.marker([p.lat, p.lon]).addTo(map).bindPopup(`<b>${esc(p.nome)}</b>`));
         if (valid.length > 0) map.setView([valid[0].lat, valid[0].lon], 13);
       });
+    }
+
+    // Costo auto (inserito manualmente, viaggio con auto propria): si somma
+    // al costo base (volo+hotel) gia' stimato, senza accumularsi ad ogni digit.
+    function updateManualAutoCost(idx, value) {
+      const trip = window._viaggiaiResults && window._viaggiaiResults[idx];
+      if (!trip) return;
+      if (trip._costoBase == null) trip._costoBase = trip.costoTotaleStimato || 0;
+      const manuale = parseFloat(value);
+      trip.costoAutoManuale = isFinite(manuale) ? manuale : 0;
+      trip.costoTotaleStimato = trip._costoBase + trip.costoAutoManuale;
+      const span = document.getElementById('totalCost-' + idx);
+      if (span) span.textContent = Math.round(trip.costoTotaleStimato) + ' €';
     }
 
     // ==================== SALVATAGGIO E STORICO ====================
