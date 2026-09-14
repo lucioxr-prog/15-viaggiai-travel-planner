@@ -714,6 +714,7 @@
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
           // One Tap bloccato (incognito/browser policy) - fallback renderButton
           var tmp = document.createElement('div');
+          tmp.id = 'gsiFallbackModal';
           tmp.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(10,20,40,0.95);padding:30px;border-radius:16px;border:1px solid rgba(0,229,255,0.3);';
           tmp.innerHTML = '<p style="color:#ccc;margin-bottom:16px;font-family:Poppins,sans-serif;">Clicca per accedere con Google:</p><div id="gsiBtn"></div><br><button onclick="this.parentNode.remove()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:#aaa;padding:8px 16px;border-radius:8px;cursor:pointer;font-family:Poppins,sans-serif;">Annulla</button>';
           document.body.appendChild(tmp);
@@ -723,6 +724,8 @@
     }
 
     function handleCredentialResponse(response) {
+      var fallbackModal = document.getElementById('gsiFallbackModal');
+      if (fallbackModal) fallbackModal.remove(); // chiude il popup "Clicca per accedere con Google" dopo login riuscito
       idToken = response.credential; // FIX: memorizziamo il token per le chiamate successive
       if (window._tokenRefreshTimer) clearInterval(window._tokenRefreshTimer);
       window._tokenRefreshTimer = setInterval(function() {
