@@ -706,7 +706,8 @@
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: handleCredentialResponse,
-        auto_select: false
+        auto_select: false,
+        use_fedcm_for_prompt: true
       });
       if (idToken) return;
       google.accounts.id.prompt(function(notification) {
@@ -726,7 +727,7 @@
       if (window._tokenRefreshTimer) clearInterval(window._tokenRefreshTimer);
       window._tokenRefreshTimer = setInterval(function() {
         if (!user || !window.google) return;
-        google.accounts.id.initialize({ client_id: "515915761481-9b538gnhivl7nncufak6q7i3rvitgvbm.apps.googleusercontent.com", callback: function(r) { if (r.credential) { idToken = r.credential; } } });
+        google.accounts.id.initialize({ client_id: "515915761481-9b538gnhivl7nncufak6q7i3rvitgvbm.apps.googleusercontent.com", callback: function(r) { if (r.credential) { idToken = r.credential; } }, use_fedcm_for_prompt: true });
         // prompt silenzioso disabilitato - evita One Tap indesiderato
       }, 45 * 60 * 1000);
       apiPost({ action: 'login', idToken: idToken })
