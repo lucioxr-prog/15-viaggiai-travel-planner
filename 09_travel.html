@@ -310,6 +310,7 @@
     .tier-trial { background:rgba(255,213,79,0.15); color:#ffd54f; border:1px solid rgba(255,213,79,0.4); }
     .tier-pro   { background:rgba(0,229,255,0.15); color:#00e5ff; border:1px solid rgba(0,229,255,0.4); }
     .tier-admin { background:rgba(179,136,255,0.15); color:#b388ff; border:1px solid rgba(179,136,255,0.4); }
+    .tier-freemium { background:rgba(76,175,80,0.15); color:#4caf50; border:1px solid rgba(76,175,80,0.4); }
     .admin-user-row {
       display:flex; align-items:center; gap:10px; flex-wrap:wrap;
       padding:10px 12px; margin:6px 0;
@@ -369,8 +370,24 @@
       <div id="authGate" style="text-align:center; padding:60px 20px;">
         <div class="glass" style="max-width:420px; margin:0 auto;">
           <h2 style="color:#00e5ff; margin-bottom:16px;">✈️ ViaggiAI</h2>
-          <p style="color:#ccc; margin-bottom:24px; font-weight:300;">Pianifica il tuo viaggio con dati reali.<br>Accedi per iniziare.</p>
-          <button class="btn-primary" onclick="loginPopup()" style="font-size:1.1rem; padding:16px;">🔐 Accedi con Google</button>
+          <p style="color:#ccc; margin-bottom:24px; font-weight:300;">Pianifica il tuo viaggio con dati reali.<br>Accedi con la tua email per iniziare.</p>
+
+          <div id="freemiumStep1">
+            <input type="email" id="freemiumEmailInput" placeholder="La tua email" style="margin-bottom:12px;">
+            <button class="btn-primary" onclick="richiediOtpFreemium()" style="font-size:1.1rem; padding:16px; width:100%;">✉️ Ricevi codice via email</button>
+            <p id="freemiumErrore1" style="color:#ff6b6b; margin-top:10px; font-size:0.9rem;"></p>
+          </div>
+
+          <div id="freemiumStep2" style="display:none;">
+            <p style="color:#ccc; margin-bottom:12px; font-size:0.9rem;">Codice inviato a <strong id="freemiumEmailConferma"></strong>. Controlla la posta (anche lo spam).</p>
+            <input type="text" id="freemiumOtpInput" placeholder="Codice a 6 cifre" maxlength="6" inputmode="numeric" style="margin-bottom:12px; text-align:center; letter-spacing:4px;">
+            <button class="btn-primary" onclick="verificaOtpFreemium()" style="font-size:1.1rem; padding:16px; width:100%;">Conferma</button>
+            <p id="freemiumErrore2" style="color:#ff6b6b; margin-top:10px; font-size:0.9rem;"></p>
+          </div>
+
+          <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1);">
+            <button class="btn-secondary" onclick="loginPopup()" style="font-size:0.85rem; padding:10px 16px;">🔐 Accedi come Admin (Google)</button>
+          </div>
         </div>
       </div>
       <!-- Pannello utente -->
@@ -535,6 +552,7 @@
 
     let user = null;
     let idToken = null; // FIX: salviamo il JWT al login e lo riusiamo (getCredential() NON esiste in GSI)
+    let freemiumEmail = null; // AGGIORNAMENTO 2026-09-14: email verificata via OTP (percorso freemium, no Google)
     let tier = null, tripsUsed = 0, tripsMax = 2; // entitlement corrente
 
     // ==================== GLOBO 3D CON ROTAZIONE LENTA AUTOMATICA ====================
@@ -747,7 +765,46 @@
 
     function logout() {
       try { google.accounts.id.disableAutoSelect(); } catch(e) {}
-      user = null; idToken = null; tier = null; tripsUsed = 0; updateUI(); if (window._tokenRefreshTimer) { clearInterval(window._tokenRefreshTimer); window._tokenRefreshTimer = null; }
+      user = null; idToken = null; freemiumEmail = null; tier = null; tripsUsed = 0; updateUI(); if (window._tokenRefreshTimer) { clearInterval(window._tokenRefreshTimer); window._tokenRefreshTimer = null; }
+    }
+
+    // ==================== FREEMIUM EMAIL+OTP (AGGIORNAMENTO 2026-09-14) ====================
+    // Percorso alternativo al login Google, per i nuovi utenti freemium (Admin resta su Google).
+    async function richiediOtpFreemium() {
+      const email = document.getElementById('freemiumEmailInput').value.trim();
+      const erroreEl = document.getElementById('freemiumErrore1');
+      erroreEl.textContent = '';
+      if (!email || !email.includes('@')) { erroreEl.textContent = 'Inserisci un\'email valida.'; return; }
+
+      try {
+        const data = await apiPost({ action: 'freemiumRichiediOtp', email: email });
+        if (!data.success) { erroreEl.textContent = data.error || 'Errore, riprova.'; return; }
+        document.getElementById('freemiumEmailConferma').textContent = email;
+        document.getElementById('freemiumStep1').style.display = 'none';
+        document.getElementById('freemiumStep2').style.display = 'block';
+        document.getElementById('freemiumOtpInput').focus();
+      } catch (e) {
+        erroreEl.textContent = 'Errore di rete, riprova.';
+      }
+    }
+
+    async function verificaOtpFreemium() {
+      const email = document.getElementById('freemiumEmailConferma').textContent;
+      const codice = document.getElementById('freemiumOtpInput').value.trim();
+      const erroreEl = document.getElementById('freemiumErrore2');
+      erroreEl.textContent = '';
+      if (!codice) { erroreEl.textContent = 'Inserisci il codice ricevuto via email.'; return; }
+
+      try {
+        const data = await apiPost({ action: 'freemiumVerificaOtp', email: email, codice: codice });
+        if (!data.success) { erroreEl.textContent = data.error || 'Codice non valido.'; return; }
+        freemiumEmail = data.email;
+        user = { email: data.email };
+        tier = data.tier; tripsUsed = data.ricercheEffettuate || 0; tripsMax = data.ricercheMax || 2;
+        updateUI();
+      } catch (e) {
+        erroreEl.textContent = 'Errore di rete, riprova.';
+      }
     }
 
     function updateTierBadge() {
@@ -756,6 +813,7 @@
       badge.style.display = 'inline-block';
       badge.className = 'tier-badge tier-' + tier;
       if (tier === 'trial')      badge.textContent = `Trial · ${tripsUsed}/${tripsMax} viaggi`;
+      else if (tier === 'freemium') badge.textContent = `Freemium · ${tripsUsed}/${tripsMax} ricerche`;
       else if (tier === 'pro')   badge.textContent = '⭐ Pro';
       else if (tier === 'admin') badge.textContent = '🔧 Admin';
     }
@@ -830,14 +888,15 @@
       const tappeRaw = [...document.querySelectorAll('.tappa')].map(el => el.value.trim()).filter(v => v);
 
       if (!originRaw || !dateFrom || !dateTo) { alert('Riempi origine e date!'); return; }
-      if (!idToken) { alert('Accedi con Google per cercare un viaggio.'); login(); return; }
+      if (!idToken && !freemiumEmail) { alert('Accedi per cercare un viaggio.'); logout(); return; }
 
       document.getElementById('loading').style.display = 'block';
       document.getElementById('resultsContainer').style.display = 'none';
 
       const payload = {
         action: 'search',
-        idToken: idToken,            // opzionale lato server, utile se attivi login obbligatorio
+        idToken: idToken,            // percorso Google (Admin/Pro/Trial), null se si e' entrati via email+OTP
+        freemiumEmail: freemiumEmail, // percorso email+OTP (freemium), null se si e' entrati con Google
         origin: originRaw,           // il backend estrae la città (extractCity_)
         destination: destinationRaw,
         dateFrom, dateTo,

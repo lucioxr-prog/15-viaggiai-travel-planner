@@ -45,6 +45,22 @@ const SHEET_USERS        = 'Users';
 const SHEET_TRIPS        = 'Trips';
 const SHEET_ENTITLEMENTS = 'Entitlements';   // ruoli/tier: admin | pro | trial
 
+// AGGIORNAMENTO 2026-09-14 — integrazione licensing Pannello 20 (Progetto 20).
+// Schema-first approvato da Luciano. Admin (Google OAuth + Entitlements)
+// resta INVARIATO - questo e' un livello NUOVO, parallelo, per gli utenti
+// freemium: login via email+OTP invece di Google, contatore ricerche
+// lato server su questa stessa tab, sblocco automatico quando Luciano crea
+// una licenza dal Pannello 20 (sync scrive license_id qui, vedi
+// syncViaggiaiCreaOAggiorna_ in Codice.js del Progetto 20).
+const SHEET_REGISTRAZIONI_FREEMIUM = 'registrazioni_freemium';
+const FREEMIUM_COL = {
+  email: 1, codice: 2, scadenza_codice: 3, verificato: 4,
+  ricerche_effettuate: 5, data_registrazione: 6, license_id: 7,
+};
+const FREEMIUM_MAX_RICERCHE = 2;          // ricerche gratuite prima del blocco, come da brief
+const FREEMIUM_OTP_VALIDITA_MIN = 10;     // minuti di validita' del codice OTP
+const FREEMIUM_SESSIONE_VALIDITA_H = 24;  // ore di "sessione ricordata" dopo verifica OTP riuscita
+
 // Valori di default (sovrascrivibili da Properties o foglio Config)
 const DEFAULTS = {
   AMADEUS_ENV: 'test',                 // 'test' (free) | 'production' (a pagamento, dati live completi)
@@ -108,6 +124,8 @@ function doPost(e) {
 
     switch (action) {
       case 'login':           return handleLogin_(payload);
+      case 'freemiumRichiediOtp': return handleFreemiumRichiediOtp_(payload);
+      case 'freemiumVerificaOtp': return handleFreemiumVerificaOtp_(payload);
       case 'search':          return handleSearch_(payload, t0);
       case 'saveTrip':        return handleSaveTrip_(payload);
       case 'getHistory':      return handleGetHistory_(payload);
@@ -202,18 +220,183 @@ function upsertUser_(u) {
 }
 
 /* ============================================================================================
+ * FREEMIUM EMAIL+OTP (nuovo livello, parallelo al login Google - vedi nota
+ * AGGIORNAMENTO 2026-09-14 in testa al file). Admin/Pro/Trial via Google
+ * OAuth restano INVARIATI (handleLogin_/getEntitlement_/consumeTrialTrip_
+ * sopra, non toccati). Questo blocco serve SOLO i nuovi utenti freemium.
+ * ==========================================================================================*/
+
+function _generaOtp6Cifre_() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+/** Cerca la riga per email nella tab registrazioni_freemium. -1 se non trovata. */
+function _trovaRigaFreemium_(sheet, emailNorm) {
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][FREEMIUM_COL.email - 1]).trim().toLowerCase() === emailNorm) {
+      return i + 1;
+    }
+  }
+  return -1;
+}
+
+/** Genera un OTP a 6 cifre, lo salva (con scadenza) sulla tab
+ *  registrazioni_freemium e lo invia via email. Crea la riga se l'utente
+ *  non si era mai registrato prima. */
+function handleFreemiumRichiediOtp_(payload) {
+  const email = String(payload.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) return jsonOut_({ success: false, error: 'Email non valida.' });
+
+  const otp = _generaOtp6Cifre_();
+  const lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+  try {
+    const sheet = getOrCreateSheet_(SHEET_REGISTRAZIONI_FREEMIUM,
+      ['email', 'codice', 'scadenza_codice', 'verificato', 'ricerche_effettuate', 'data_registrazione', 'license_id']);
+    const scadenza = new Date(Date.now() + FREEMIUM_OTP_VALIDITA_MIN * 60000);
+    const riga = _trovaRigaFreemium_(sheet, email);
+
+    if (riga > 0) {
+      sheet.getRange(riga, FREEMIUM_COL.codice).setValue(otp);
+      sheet.getRange(riga, FREEMIUM_COL.scadenza_codice).setValue(scadenza);
+      sheet.getRange(riga, FREEMIUM_COL.verificato).setValue('');
+    } else {
+      sheet.appendRow([email, otp, scadenza, '', 0, new Date(), '']);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Il tuo codice ViaggiAI',
+      body: 'Ciao,\n\nIl tuo codice di accesso a ViaggiAI è: ' + otp + '\n\n' +
+        'Il codice è valido per ' + FREEMIUM_OTP_VALIDITA_MIN + ' minuti.\n\n— ViaggiAI · SintesiDigitale',
+    });
+  } catch (err) {
+    return jsonOut_({ success: false, error: 'Impossibile inviare l\'email: ' + (err && err.message ? err.message : err) });
+  }
+  return jsonOut_({ success: true });
+}
+
+/** Verifica il codice OTP inserito. Se corretto, marca la riga come
+ *  verificata (timestamp, non solo 'si': serve per calcolare la finestra
+ *  di sessione in _verificaSessioneFreemium_). */
+function handleFreemiumVerificaOtp_(payload) {
+  const email = String(payload.email || '').trim().toLowerCase();
+  const codice = String(payload.codice || '').trim();
+  if (!email || !codice) return jsonOut_({ success: false, error: 'Email o codice mancante.' });
+
+  const sheet = getOrCreateSheet_(SHEET_REGISTRAZIONI_FREEMIUM,
+    ['email', 'codice', 'scadenza_codice', 'verificato', 'ricerche_effettuate', 'data_registrazione', 'license_id']);
+  const riga = _trovaRigaFreemium_(sheet, email);
+  if (riga < 0) return jsonOut_({ success: false, error: 'Richiedi prima un codice.' });
+
+  const row = sheet.getRange(riga, 1, 1, 7).getValues()[0];
+  const codiceSalvato = String(row[FREEMIUM_COL.codice - 1] || '');
+  const scadenza = row[FREEMIUM_COL.scadenza_codice - 1];
+
+  if (codice !== codiceSalvato) return jsonOut_({ success: false, error: 'Codice non corretto.' });
+  if (scadenza && new Date(scadenza) < new Date()) return jsonOut_({ success: false, error: 'Codice scaduto, richiedine uno nuovo.' });
+
+  sheet.getRange(riga, FREEMIUM_COL.verificato).setValue(new Date().toISOString());
+  const ricercheEffettuate = Number(row[FREEMIUM_COL.ricerche_effettuate - 1] || 0);
+  const licenseId = row[FREEMIUM_COL.license_id - 1] || '';
+  return jsonOut_({
+    success: true, email: email,
+    tier: licenseId ? 'pro' : 'freemium',
+    ricercheEffettuate: ricercheEffettuate, ricercheMax: FREEMIUM_MAX_RICERCHE,
+  });
+}
+
+/** Controlla che l'email abbia una verifica OTP ancora valida (entro
+ *  FREEMIUM_SESSIONE_VALIDITA_H ore) prima di permettere una ricerca.
+ *  Chiamata ad ogni ricerca (non solo al login) - stesso principio del
+ *  refresh token Google lato Admin: la "sessione" e' rivalidata, non solo
+ *  controllata una volta al login. */
+function _verificaSessioneFreemium_(email) {
+  const emailNorm = String(email || '').trim().toLowerCase();
+  if (!emailNorm) return { ok: false, error: 'Email mancante.' };
+
+  const sheet = getOrCreateSheet_(SHEET_REGISTRAZIONI_FREEMIUM,
+    ['email', 'codice', 'scadenza_codice', 'verificato', 'ricerche_effettuate', 'data_registrazione', 'license_id']);
+  const riga = _trovaRigaFreemium_(sheet, emailNorm);
+  if (riga < 0) return { ok: false, error: 'Email non registrata. Richiedi un codice di accesso.' };
+
+  const row = sheet.getRange(riga, 1, 1, 7).getValues()[0];
+  const verificatoIso = row[FREEMIUM_COL.verificato - 1];
+  if (!verificatoIso) return { ok: false, error: 'Email non verificata. Richiedi un codice di accesso.' };
+
+  const verificatoDate = new Date(verificatoIso);
+  const scaduta = isNaN(verificatoDate.getTime()) ||
+    (Date.now() - verificatoDate.getTime()) > FREEMIUM_SESSIONE_VALIDITA_H * 3600000;
+  if (scaduta) return { ok: false, error: 'Sessione scaduta, richiedi un nuovo codice di accesso.' };
+
+  return {
+    ok: true,
+    ricercheEffettuate: Number(row[FREEMIUM_COL.ricerche_effettuate - 1] || 0),
+    licenseId: row[FREEMIUM_COL.license_id - 1] || '',
+  };
+}
+
+/** Atomico: verifica E consuma una ricerca freemium sotto un UNICO lock,
+ *  stesso principio di consumeTrialTrip_ sopra (no race condition). Non
+ *  consuma nulla se l'email ha gia' una licenza attiva (license_id
+ *  valorizzato dalla sync del Pannello 20). */
+function _consumaRicercaFreemium_(email, max) {
+  const emailNorm = String(email || '').trim().toLowerCase();
+  const lock = LockService.getScriptLock();
+  lock.tryLock(15000);
+  try {
+    const sheet = getOrCreateSheet_(SHEET_REGISTRAZIONI_FREEMIUM,
+      ['email', 'codice', 'scadenza_codice', 'verificato', 'ricerche_effettuate', 'data_registrazione', 'license_id']);
+    const riga = _trovaRigaFreemium_(sheet, emailNorm);
+    if (riga < 0) return { allowed: false, ricercheEffettuate: 0 };
+
+    const row = sheet.getRange(riga, 1, 1, 7).getValues()[0];
+    if (row[FREEMIUM_COL.license_id - 1]) {
+      return { allowed: true, ricercheEffettuate: Number(row[FREEMIUM_COL.ricerche_effettuate - 1] || 0) }; // licenza attiva, non consuma
+    }
+    let used = Number(row[FREEMIUM_COL.ricerche_effettuate - 1] || 0);
+    if (used >= max) return { allowed: false, ricercheEffettuate: used };
+    used += 1;
+    sheet.getRange(riga, FREEMIUM_COL.ricerche_effettuate).setValue(used);
+    return { allowed: true, ricercheEffettuate: used };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ============================================================================================
  * RICERCA VIAGGIO (orchestratore)
  * ==========================================================================================*/
 
 function handleSearch_(payload, t0) {
-  // Login OBBLIGATORIO (necessario per i tier). Verifica server-side dell'idToken.
-  const u = verifyIdToken_(payload.idToken);
-  if (!u) return jsonOut_({ success: false, error: 'Accedi con Google per cercare.' });
+  // Login OBBLIGATORIO. Due percorsi possibili:
+  //  (a) Google OAuth - Admin/Pro/Trial storico, INVARIATO, stesso codice di sempre.
+  //  (b) email+OTP freemium (Pannello 20, AGGIORNAMENTO 2026-09-14) - nuovi utenti.
+  var u = null;
+  var ent, trialMax, isFreemium = false;
 
-  const ent = getEntitlement_(u.email);
-  const trialMax = parseInt(cfg_('TRIAL_MAX_TRIPS') || '2', 10);
+  if (payload.idToken) {
+    u = verifyIdToken_(payload.idToken);
+    if (!u) return jsonOut_({ success: false, error: 'Accedi con Google per cercare.' });
 
-  // NB: il blocco Trial e il cap globale sono applicati piu' sotto, SOLO per ricerche reali
+    ent = getEntitlement_(u.email);
+    trialMax = parseInt(cfg_('TRIAL_MAX_TRIPS') || '2', 10);
+  } else if (payload.freemiumEmail) {
+    var sessione = _verificaSessioneFreemium_(payload.freemiumEmail);
+    if (!sessione.ok) return jsonOut_({ success: false, error: sessione.error });
+    isFreemium = true;
+    ent = { tier: sessione.licenseId ? 'pro' : 'freemium', tripsUsed: sessione.ricercheEffettuate };
+    trialMax = FREEMIUM_MAX_RICERCHE;
+  } else {
+    return jsonOut_({ success: false, error: 'Accedi con Google o con email per cercare.' });
+  }
+
+  // NB: il blocco Trial/Freemium e il cap globale sono applicati piu' sotto, SOLO per ricerche reali
   //     (con destinazione), in modo atomico. I suggerimenti a destinazione vuota sono gratuiti.
 
   const warnings = [];
@@ -257,7 +440,17 @@ function handleSearch_(payload, t0) {
       });
     }
     trialTripsUsed = consume.tripsUsed;
+  } else if (ent.tier === 'freemium') {
+    const consumeFree = _consumaRicercaFreemium_(payload.freemiumEmail, trialMax);
+    if (!consumeFree.allowed) {
+      return jsonOut_({
+        success: false, blocked: true, tier: 'freemium',
+        error: 'Versione di prova terminata: hai usato le ' + trialMax + ' ricerche gratuite. Contattaci per una licenza.'
+      });
+    }
+    trialTripsUsed = consumeFree.ricercheEffettuate;
   }
+  // tier 'pro'/'admin' (Google) o 'pro' via licenza (freemium con license_id): nessun consumo, come gia' oggi.
 
   const origin = extractCity_(originRaw);
   const dest   = extractCity_(destRaw);
